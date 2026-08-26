@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
-import { Users, Gift, Upload, CalendarClock, GraduationCap, Trophy, ClipboardCheck, Receipt } from "lucide-react";
+import { Users, Gift, Upload, CalendarClock, GraduationCap, Trophy, ClipboardCheck, Receipt, ShieldCheck } from "lucide-react";
 
 const SECOES = [
   { href: "/admin/turmas", label: "Turmas", desc: "Gerenciar turmas e PECs", icon: GraduationCap },
   { href: "/admin/casas", label: "Casas", desc: "As 4 Casas oficiais", icon: Trophy },
   { href: "/admin/catalogo", label: "Catálogo", desc: "Itens de recompensa", icon: Gift },
   { href: "/admin/resgates", label: "Resgates", desc: "Aprovar ou recusar pedidos", icon: ClipboardCheck },
-  { href: "/admin/professores", label: "Professores", desc: "Dar pontos a professores", icon: Users },
+  { href: "/admin/professores", label: "Professores", desc: "Cadastrar, marcar PEC e dar pontos", icon: Users },
+  { href: "/admin/administradores", label: "Administradores", desc: "Cadastrar novos administradores", icon: ShieldCheck },
   { href: "/admin/extrato", label: "Extrato", desc: "Filtros avançados por data, Casa, tipo e ano", icon: Receipt },
   { href: "/admin/importar", label: "Importar planilha", desc: "Alunos em massa (.csv/.xlsx)", icon: Upload },
   { href: "/admin/ano-letivo", label: "Ano letivo", desc: "Encerrar ano e reatribuir turmas", icon: CalendarClock },
