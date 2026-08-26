@@ -23,6 +23,8 @@ const OPCOES = [
   { titulo: "Poupança", texto: "Rende um pouco menos que o CDB, mas é o clássico: simples, direto, sempre disponível." },
   { titulo: "Fundo Imobiliário", texto: "Rende parecido com \"aluguel\" dos seus BosqueCoins. Também pode resgatar quando quiser." },
   { titulo: "Tesouro Direto", texto: "Um investimento mais \"seguro\", rendendo de forma constante enquanto ele estiver aplicado." },
+  { titulo: "Dízimo (Igreja)", texto: "Uma doação pra igreja. Não tem volta — é um presente, não um investimento no sentido de esperar algo de volta." },
+  { titulo: "Lar do Idoso", texto: "Uma doação pro lar dos idosos. Também não tem volta: é ajudar quem precisa, sem esperar nada em troca." },
 ];
 
 const VIRTUDES = [
@@ -48,7 +50,7 @@ const VIRTUDES = [
   },
   {
     titulo: "Generosidade",
-    texto: "Investir na Casa ou na turma, mesmo sem volta, é um jeito prático de colocar o bem do grupo à frente do seu próprio ganho — de dar de coração.",
+    texto: "Investir na Casa ou na turma, mesmo sem volta, é um jeito prático de colocar o bem do grupo à frente do seu próprio ganho. Doar pro Dízimo ou pro Lar do Idoso vai um passo além: é dar sem esperar nada de volta, nem pro grupo nem pra você — de coração.",
     referencia: "2 Coríntios 9:7; Provérbios 11:24-25",
   },
   {

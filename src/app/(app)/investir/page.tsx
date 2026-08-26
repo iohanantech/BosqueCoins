@@ -9,13 +9,14 @@ import { CoinIcon } from "@/components/ui/coin-icon";
 import { InstrucoesInvestimento } from "@/components/dashboard/instrucoes-investimento";
 import { cn } from "@/lib/utils";
 
-type TipoInvestimento = "casa" | "turma" | "cdb" | "poupanca" | "fundo_imobiliario" | "tesouro_direto";
+type TipoInvestimento = "casa" | "turma" | "cdb" | "poupanca" | "fundo_imobiliario" | "tesouro_direto" | "dizimo" | "lar_idoso";
 
 interface OpcaoDestino {
   tipo: TipoInvestimento;
   nome: string;
   descricao: string;
   irreversivel: boolean;
+  doacao?: boolean; // troca o verbo "investir" por "doar" na UI - mesmo fluxo, so a palavra muda
   taxaAnual?: number;
 }
 
@@ -26,6 +27,8 @@ const OPCOES: OpcaoDestino[] = [
   { tipo: "poupanca", nome: "Poupança", descricao: "Rende um pouco menos, sempre disponível.", irreversivel: false, taxaAnual: 0.06 },
   { tipo: "fundo_imobiliario", nome: "Fundo Imobiliário", descricao: "Rende parecido com \"aluguel\".", irreversivel: false, taxaAnual: 0.09 },
   { tipo: "tesouro_direto", nome: "Tesouro Direto", descricao: "Rendimento constante, mais \"seguro\".", irreversivel: false, taxaAnual: 0.105 },
+  { tipo: "dizimo", nome: "Dízimo (Igreja)", descricao: "Uma doação pra igreja. Sem volta — um ato de generosidade.", irreversivel: true, doacao: true },
+  { tipo: "lar_idoso", nome: "Lar do Idoso", descricao: "Uma doação pro lar dos idosos. Sem volta — um ato de generosidade.", irreversivel: true, doacao: true },
 ];
 
 interface Investimento {
@@ -85,7 +88,10 @@ export default function InvestirPage() {
     });
     const json = await res.json();
     if (res.ok) {
-      setFeedback({ tipo: "sucesso", texto: `${valorNum} BosqueCoins investidos em ${opcaoSelecionada?.nome}!` });
+      const texto = opcaoSelecionada?.doacao
+        ? `${valorNum} BosqueCoins doados para ${opcaoSelecionada?.nome}!`
+        : `${valorNum} BosqueCoins investidos em ${opcaoSelecionada?.nome}!`;
+      setFeedback({ tipo: "sucesso", texto });
       setValor("");
       setConfirmando(false);
       setTipoSelecionado(null);
@@ -164,7 +170,9 @@ export default function InvestirPage() {
       {opcaoSelecionada && (
         <Card>
           <CardHeader>
-            <CardTitle>Quanto investir em {opcaoSelecionada.nome}?</CardTitle>
+            <CardTitle>
+              {opcaoSelecionada.doacao ? "Quanto doar para" : "Quanto investir em"} {opcaoSelecionada.nome}?
+            </CardTitle>
           </CardHeader>
           <Input
             inputMode="numeric"
@@ -177,16 +185,18 @@ export default function InvestirPage() {
           {opcaoSelecionada.irreversivel ? (
             !confirmando ? (
               <Button className="mt-3 w-full" variant="destructive" disabled={!valor} onClick={() => setConfirmando(true)}>
-                Investir (irreversível)
+                {opcaoSelecionada.doacao ? "Doar (irreversível)" : "Investir (irreversível)"}
               </Button>
             ) : (
               <div className="mt-3 space-y-2 rounded-xl2 border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950/30">
                 <p className="text-xs text-red-700 dark:text-red-300">
-                  Tem certeza? Depois de investir em {opcaoSelecionada.nome}, esse valor não volta pro seu saldo — é definitivo.
+                  {opcaoSelecionada.doacao
+                    ? `Tem certeza? Depois de doar para ${opcaoSelecionada.nome}, esse valor não volta pro seu saldo — é definitivo.`
+                    : `Tem certeza? Depois de investir em ${opcaoSelecionada.nome}, esse valor não volta pro seu saldo — é definitivo.`}
                 </p>
                 <div className="flex gap-2">
                   <Button size="sm" variant="destructive" disabled={enviando} onClick={confirmarInvestimento}>
-                    {enviando ? "Investindo…" : "Sim, investir"}
+                    {enviando ? "Enviando…" : opcaoSelecionada.doacao ? "Sim, doar" : "Sim, investir"}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setConfirmando(false)}>
                     Cancelar

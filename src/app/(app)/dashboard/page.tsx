@@ -36,6 +36,7 @@ interface RankingsResponse {
 interface ResumoInvestimentos {
   totalReversivelAtivo: number;
   totalColetivoInvestido: number;
+  totalDoado: number;
   quantidadeAtivos: number;
 }
 
@@ -140,7 +141,9 @@ export default function DashboardPage() {
               <p className="font-display font-semibold">Investir</p>
               <p className="text-xs opacity-80">
                 {resumoInvestimentos
-                  ? `${resumoInvestimentos.totalReversivelAtivo} rendendo · ${resumoInvestimentos.totalColetivoInvestido} já investidos na Casa/turma`
+                  ? `${resumoInvestimentos.totalReversivelAtivo} rendendo · ${resumoInvestimentos.totalColetivoInvestido} já investidos na Casa/turma${
+                      resumoInvestimentos.totalDoado > 0 ? ` · ${resumoInvestimentos.totalDoado} já doados` : ""
+                    }`
                   : "Escolha o que fazer com seu saldo"}
               </p>
             </div>

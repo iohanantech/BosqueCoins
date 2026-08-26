@@ -2,7 +2,17 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
-## Continuação — Fase 7 (tema, ferramentas administrativas)
+## Continuação — Fase 9 (doações: Dízimo e Lar do Idoso)
+
+Aluno agora pode doar o próprio saldo pra **Dízimo (Igreja)** e **Lar do Idoso**, além das 6 opções já existentes em `/investir`. São tipos novos em `TipoInvestimento` (migration `20260826200455_doacoes_dizimo_lar_idoso`, `ALTER TYPE` no Postgres — aplicada em dev e teste, falta aplicar em produção via `npm run prisma:deploy` no próximo deploy).
+
+Conceitualmente são **diferentes de Casa/turma**, mesmo sendo irreversíveis como elas: investir em Casa/turma credita um placar coletivo *dentro do sistema* (RN-16); doar pro Dízimo/Lar do Idoso só debita o aluno e gera 1 `Transacao` de auditoria — não existe "Casa" ou "turma" representando a igreja ou o lar do idoso pra creditar. `regras.ts` ganhou esse distinguo explícito: `ehInvestimentoColetivo` (casa/turma, credita algo) vs `ehDoacao` (dízimo/lar_idoso, só sai) — `ehInvestimentoIrreversivel` continua cobrindo os dois grupos (nenhum dos dois pode ser resgatado). `investmentService.ts::investirDoacao` é a nova função (mesmo padrão de débito atômico condicional das outras rotas de investimento, ver Fase 8).
+
+UI: os dois aparecem na grade de opções de `/investir` com o badge "Sem volta" (igual Casa/turma); um flag `doacao: true` na opção troca o verbo da interface de "investir" pra "doar" ("Quanto doar para...", "Doar (irreversível)", "Sim, doar") — mesmo fluxo de confirmação, só a palavra muda pra soar natural. O card "Investir" do dashboard ganhou "· N já doados" quando o aluno já doou algo (`resumoInvestimentos` agora retorna `totalDoado` além dos campos existentes). `instrucoes-investimento.tsx` (conteúdo confessional, mesma ressalva de revisão pedagógica/religiosa já documentada) ganhou as duas opções na lista e uma frase a mais na virtude "Generosidade" citando a doação como o passo além do investir-mas-sem-esperar-nada-de-volta.
+
+Coberto por `tests/unit/regras.test.ts` (classificação dos novos tipos) e `tests/integration/investmentService.test.ts` (débito, ausência de crédito coletivo, resumo agregado, RN-06 sem saldo suficiente).
+
+## Continuação — Fase 8 (auditoria de segurança + correções)
 
 Implementado e commitado nesta sessão, todo `typecheck`/`lint`/testes unitários limpos e verificado manualmente no navegador (`npm run dev`) — **sem testes de integração/E2E novos ainda** para os endpoints administrativos abaixo (RN-08/09/10 deles, ex.: todos exigem admin, não têm cobertura automatizada, só verificação manual; a suíte existente continua passando):
 

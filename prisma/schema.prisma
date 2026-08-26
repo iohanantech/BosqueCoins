@@ -41,6 +41,8 @@ enum TipoInvestimento {
   poupanca
   fundo_imobiliario
   tesouro_direto
+  dizimo
+  lar_idoso
 }
 
 enum StatusInvestimento {

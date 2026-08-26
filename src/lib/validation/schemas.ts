@@ -58,7 +58,7 @@ export const encerrarAnoSchema = z.object({
 // da matricula do ano vigente, nao recebida como parametro (evita um aluno
 // inflar o placar de uma turma/Casa que nao e a dele).
 export const investirSchema = z.object({
-  tipo: z.enum(["casa", "turma", "cdb", "poupanca", "fundo_imobiliario", "tesouro_direto"]),
+  tipo: z.enum(["casa", "turma", "cdb", "poupanca", "fundo_imobiliario", "tesouro_direto", "dizimo", "lar_idoso"]),
   valor: z.number().int().positive("O valor deve ser um numero inteiro positivo."),
   alunoId: z.string().uuid().optional(), // so quando admin investe em nome do aluno (RN-15)
 });

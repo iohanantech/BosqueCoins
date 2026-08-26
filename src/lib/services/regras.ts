@@ -193,13 +193,40 @@ export function itemPermiteEscopo(
 // Investimentos (INVESTIMENTOS.md, RN-15..RN-21)
 // ---------------------------------------------------------------------
 
-export type TipoInvestimento = "casa" | "turma" | "cdb" | "poupanca" | "fundo_imobiliario" | "tesouro_direto";
+export type TipoInvestimento =
+  | "casa"
+  | "turma"
+  | "cdb"
+  | "poupanca"
+  | "fundo_imobiliario"
+  | "tesouro_direto"
+  | "dizimo"
+  | "lar_idoso";
 
+/** Casa/turma: irreversivel E credita um placar coletivo do proprio colegio (RN-16). */
 const TIPOS_COLETIVOS_IRREVERSIVEIS: readonly TipoInvestimento[] = ["casa", "turma"];
 
-/** RN-16 — Investimento em Casa/turma e irreversivel (nao gera Investimento resgatavel). */
-export function ehInvestimentoIrreversivel(tipo: TipoInvestimento): boolean {
+/**
+ * Dizimo/Lar do Idoso: tambem irreversivel, mas e uma DOACAO - o valor sai
+ * do saldo do aluno e nao credita nenhum placar/pool dentro do sistema (nao
+ * existe "Casa" ou "turma" representando a igreja ou o lar do idoso). So
+ * gera o debito do aluno, nada mais - ver investmentService.ts::investirDoacao.
+ */
+const TIPOS_DOACAO_IRREVERSIVEIS: readonly TipoInvestimento[] = ["dizimo", "lar_idoso"];
+
+/** Investimento em Casa/turma e irreversivel (nao gera Investimento resgatavel). */
+export function ehInvestimentoColetivo(tipo: TipoInvestimento): boolean {
   return TIPOS_COLETIVOS_IRREVERSIVEIS.includes(tipo);
+}
+
+/** Doacao (Dizimo/Lar do Idoso): irreversivel, sem placar coletivo pra creditar. */
+export function ehDoacao(tipo: TipoInvestimento): boolean {
+  return TIPOS_DOACAO_IRREVERSIVEIS.includes(tipo);
+}
+
+/** RN-16 — Casa/turma/doacao sao irreversiveis (nao geram Investimento resgatavel). */
+export function ehInvestimentoIrreversivel(tipo: TipoInvestimento): boolean {
+  return ehInvestimentoColetivo(tipo) || ehDoacao(tipo);
 }
 
 /** RN-17 — os demais tipos (CDB/poupanca/FII/tesouro) sao reversiveis a qualquer momento. */
@@ -213,7 +240,7 @@ export function validarPodeResgatar(
   status: "ativo" | "resgatado"
 ): ValidacaoResultado {
   if (ehInvestimentoIrreversivel(tipo)) {
-    return { valido: false, erro: "Investimentos em Casa ou turma são irreversíveis e não podem ser resgatados." };
+    return { valido: false, erro: "Este tipo de investimento é irreversível e não pode ser resgatado." };
   }
   if (status === "resgatado") {
     return { valido: false, erro: "Este investimento já foi resgatado." };

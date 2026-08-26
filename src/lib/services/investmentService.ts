@@ -4,6 +4,7 @@ import {
   validarValorInteiroPositivo,
   validarDebitoNaoNegativo,
   ehInvestimentoReversivel,
+  ehDoacao,
   validarPodeResgatar,
   calcularDeltaInvestimentoColetivo,
   calcularValorComJuros,
@@ -11,6 +12,13 @@ import {
 } from "@/lib/services/regras";
 import { TAXAS_ANUAIS, type TipoInvestimentoReversivel } from "@/lib/config/taxasInvestimento";
 import { getAnoLetivoAtivo } from "@/lib/services/pointsService";
+
+type TipoDoacao = "dizimo" | "lar_idoso";
+
+const NOMES_DOACAO: Record<TipoDoacao, string> = {
+  dizimo: "Dízimo (Igreja)",
+  lar_idoso: "Lar do Idoso",
+};
 
 export interface InvestirInput {
   alunoId: string;
@@ -22,9 +30,12 @@ export interface InvestirInput {
  * RN-15..RN-21 (INVESTIMENTOS.md) — substitui a propagacao automatica que a
  * RN-01 original fazia. O aluno decide o destino do proprio saldo:
  *  - casa/turma: irreversivel, credita direto o periodo do ano vigente (RN-16).
+ *  - dizimo/lar_idoso: irreversivel, e uma DOACAO - so debita o aluno, nao
+ *    credita nenhum placar dentro do sistema (nao existe "Casa" pra igreja
+ *    ou pro lar do idoso).
  *  - cdb/poupanca/fundo_imobiliario/tesouro_direto: reversivel, cria um
  *    Investimento com a taxa congelada no momento (RN-17/18).
- * Em ambos os casos, debita o saldo ATUAL do aluno (nao mexe no acumulado -
+ * Em todos os casos, debita o saldo ATUAL do aluno (nao mexe no acumulado -
  * e "dinheiro que ele ja tinha" mudando de lugar, nao um credito novo).
  */
 export async function investir(input: InvestirInput) {
@@ -46,6 +57,10 @@ export async function investir(input: InvestirInput) {
 
   if (tipo === "casa" || tipo === "turma") {
     return investirColetivo({ aluno, tipo, valor, anoLetivoId: anoLetivo.id });
+  }
+
+  if (ehDoacao(tipo)) {
+    return investirDoacao({ aluno, tipo: tipo as TipoDoacao, valor, anoLetivoId: anoLetivo.id });
   }
 
   return investirReversivel({ aluno, tipo: tipo as TipoInvestimentoReversivel, valor, anoLetivoId: anoLetivo.id });
@@ -146,6 +161,40 @@ async function investirColetivo(params: {
         },
       });
     }
+
+    return { tipo, valor };
+  });
+}
+
+/**
+ * Doacao (Dizimo/Lar do Idoso): irreversivel como investir em Casa/turma,
+ * mas sem placar coletivo pra creditar - o valor so sai do saldo do aluno.
+ * Gera uma unica Transacao de debito (RN-21 - toda operacao de investimento
+ * gera Transacao), sem contrapartida de credito dentro do sistema.
+ */
+async function investirDoacao(params: { aluno: { id: string }; tipo: TipoDoacao; valor: number; anoLetivoId: string }) {
+  const { aluno, tipo, valor, anoLetivoId } = params;
+
+  return prisma.$transaction(async (tx) => {
+    // Mesmo debito condicional das outras rotas de investimento - ver
+    // comentario em investirColetivo acima.
+    const debitado = await tx.usuario.updateMany({
+      where: { id: aluno.id, saldoAtual: { gte: valor } },
+      data: { saldoAtual: { decrement: valor } },
+    });
+    if (debitado.count === 0) throw new ApiError(400, "Saldo atual insuficiente para esta operação.");
+
+    await tx.transacao.create({
+      data: {
+        anoLetivoId,
+        tipo: "debito",
+        valor,
+        motivo: `Doação (irreversível): ${NOMES_DOACAO[tipo]}`,
+        origemUsuarioId: aluno.id,
+        destinoTipo: "aluno",
+        destinoId: aluno.id,
+      },
+    });
 
     return { tipo, valor };
   });
@@ -272,10 +321,13 @@ export async function listarInvestimentos(alunoId: string) {
 
 /**
  * Resumo usado no card "Investir" do dashboard do aluno: total ativo em
- * investimentos reversiveis (com juros ate agora) e total ja investido de
- * forma permanente em Casa/turma. O total coletivo e somado a partir das
- * proprias Transacoes de investimento (destinoTipo casa/turma, originadas
- * pelo aluno) - nao ha um registro de Investimento para elas (RN-16).
+ * investimentos reversiveis (com juros ate agora), total ja investido de
+ * forma permanente em Casa/turma, e total ja doado (Dizimo/Lar do Idoso). O
+ * total coletivo e somado a partir das proprias Transacoes de investimento
+ * (destinoTipo casa/turma, originadas pelo aluno) - nao ha um registro de
+ * Investimento para elas (RN-16). O total doado usa o mesmo raciocinio, mas
+ * filtrando pelo motivo (destinoTipo continua "aluno" - a doacao nao credita
+ * ninguem dentro do sistema, ver investirDoacao).
  */
 export async function resumoInvestimentos(alunoId: string) {
   const ativos = await prisma.investimento.findMany({ where: { alunoId, status: "ativo" } });
@@ -290,7 +342,13 @@ export async function resumoInvestimentos(alunoId: string) {
   });
   const totalColetivoInvestido = coletivas.reduce((soma, t) => soma + t.valor, 0);
 
-  return { totalReversivelAtivo, totalColetivoInvestido, quantidadeAtivos: ativos.length };
+  const doacoes = await prisma.transacao.findMany({
+    where: { origemUsuarioId: alunoId, tipo: "debito", motivo: { startsWith: "Doação (irreversível):" } },
+    select: { valor: true },
+  });
+  const totalDoado = doacoes.reduce((soma, t) => soma + t.valor, 0);
+
+  return { totalReversivelAtivo, totalColetivoInvestido, totalDoado, quantidadeAtivos: ativos.length };
 }
 
 export { ehInvestimentoReversivel };

@@ -17,6 +17,8 @@ import {
   calcularValorComJuros,
   ehInvestimentoReversivel,
   ehInvestimentoIrreversivel,
+  ehInvestimentoColetivo,
+  ehDoacao,
   validarPodeResgatar,
   calcularDeltaInvestimentoColetivo,
 } from "@/lib/services/regras";
@@ -149,6 +151,23 @@ describe("RN-16/RN-17 — reversibilidade dos tipos de investimento", () => {
       expect(ehInvestimentoReversivel(tipo)).toBe(true);
       expect(ehInvestimentoIrreversivel(tipo)).toBe(false);
     }
+  });
+
+  it("dizimo e lar_idoso (doacoes) sao irreversiveis, mas nao sao coletivos", () => {
+    expect(ehInvestimentoIrreversivel("dizimo")).toBe(true);
+    expect(ehInvestimentoIrreversivel("lar_idoso")).toBe(true);
+    expect(ehInvestimentoReversivel("dizimo")).toBe(false);
+    expect(ehInvestimentoReversivel("lar_idoso")).toBe(false);
+
+    expect(ehDoacao("dizimo")).toBe(true);
+    expect(ehDoacao("lar_idoso")).toBe(true);
+    expect(ehDoacao("casa")).toBe(false);
+    expect(ehDoacao("turma")).toBe(false);
+
+    expect(ehInvestimentoColetivo("dizimo")).toBe(false);
+    expect(ehInvestimentoColetivo("lar_idoso")).toBe(false);
+    expect(ehInvestimentoColetivo("casa")).toBe(true);
+    expect(ehInvestimentoColetivo("turma")).toBe(true);
   });
 });
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { prisma } from "./setup";
 import { criarFixtureBase } from "./fixtures";
 import { distribuirPontos } from "@/lib/services/pointsService";
-import { investir, resgatarInvestimento } from "@/lib/services/investmentService";
+import { investir, resgatarInvestimento, resumoInvestimentos } from "@/lib/services/investmentService";
 import { calcularValorComJuros } from "@/lib/services/regras";
 import { TAXAS_ANUAIS } from "@/lib/config/taxasInvestimento";
 import { ApiError } from "@/lib/auth/server";
@@ -131,5 +131,72 @@ describe("RN-16 - investir em Casa/turma e irreversivel", () => {
     await expect(resgatarInvestimento({ investimentoId: "00000000-0000-0000-0000-000000000000", alunoId: alunoA1.id })).rejects.toThrow(
       ApiError
     );
+  });
+});
+
+describe("Doação (Dízimo/Lar do Idoso) - irreversível, sem placar coletivo", () => {
+  it("debita o aluno, gera 1 transacao de debito, e NAO credita nenhuma Casa/turma nem cria Investimento", async () => {
+    const { alunoA1, turmaA, casaA, professorPec, anoLetivo } = await criarFixtureBase();
+    await darSaldo(alunoA1.id, turmaA.id, professorPec.id, 100);
+
+    await investir({ alunoId: alunoA1.id, tipo: "dizimo", valor: 25 });
+
+    const aluno = await prisma.usuario.findUniqueOrThrow({ where: { id: alunoA1.id } });
+    expect(aluno.saldoAtual).toBe(75);
+    expect(aluno.saldoAcumulado).toBe(100); // doacao nao mexe no acumulado, igual investir
+
+    const casaPeriodo = await prisma.casaPeriodo.findUniqueOrThrow({
+      where: { casaId_anoLetivoId: { casaId: casaA.id, anoLetivoId: anoLetivo.id } },
+    });
+    expect(casaPeriodo.saldoAtual).toBe(0); // NAO foi creditada - doacao nao e coletivo
+
+    const turmaPeriodo = await prisma.turmaPeriodo.findUniqueOrThrow({
+      where: { turmaId_anoLetivoId: { turmaId: turmaA.id, anoLetivoId: anoLetivo.id } },
+    });
+    expect(turmaPeriodo.saldoAtual).toBe(0);
+
+    const registros = await prisma.investimento.findMany({ where: { alunoId: alunoA1.id } });
+    expect(registros).toHaveLength(0); // irreversivel, sem registro resgatavel (igual Casa/turma)
+
+    const transacoes = await prisma.transacao.findMany({ where: { origemUsuarioId: alunoA1.id, tipo: "debito" } });
+    expect(transacoes).toHaveLength(1);
+    expect(transacoes[0]?.motivo).toContain("Dízimo");
+  });
+
+  it("investir em lar_idoso tambem funciona, e nao pode ser resgatado", async () => {
+    const { alunoA1, turmaA, professorPec } = await criarFixtureBase();
+    await darSaldo(alunoA1.id, turmaA.id, professorPec.id, 50);
+
+    await investir({ alunoId: alunoA1.id, tipo: "lar_idoso", valor: 10 });
+
+    const aluno = await prisma.usuario.findUniqueOrThrow({ where: { id: alunoA1.id } });
+    expect(aluno.saldoAtual).toBe(40);
+
+    await expect(
+      resgatarInvestimento({ investimentoId: "00000000-0000-0000-0000-000000000000", alunoId: alunoA1.id })
+    ).rejects.toThrow(ApiError);
+  });
+
+  it("RN-06 - doar mais do que o saldo disponivel falha, sem alterar nada", async () => {
+    const { alunoA1, turmaA, professorPec } = await criarFixtureBase();
+    await darSaldo(alunoA1.id, turmaA.id, professorPec.id, 10);
+
+    await expect(investir({ alunoId: alunoA1.id, tipo: "dizimo", valor: 11 })).rejects.toThrow(ApiError);
+
+    const aluno = await prisma.usuario.findUniqueOrThrow({ where: { id: alunoA1.id } });
+    expect(aluno.saldoAtual).toBe(10);
+  });
+
+  it("resumoInvestimentos soma o total doado separadamente do total coletivo", async () => {
+    const { alunoA1, turmaA, professorPec } = await criarFixtureBase();
+    await darSaldo(alunoA1.id, turmaA.id, professorPec.id, 100);
+
+    await investir({ alunoId: alunoA1.id, tipo: "casa", valor: 20 });
+    await investir({ alunoId: alunoA1.id, tipo: "dizimo", valor: 15 });
+    await investir({ alunoId: alunoA1.id, tipo: "lar_idoso", valor: 5 });
+
+    const resumo = await resumoInvestimentos(alunoA1.id);
+    expect(resumo.totalColetivoInvestido).toBe(20);
+    expect(resumo.totalDoado).toBe(20); // 15 + 5
   });
 });
