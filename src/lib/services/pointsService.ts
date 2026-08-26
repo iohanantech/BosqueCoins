@@ -40,7 +40,9 @@ export interface DistribuirPontosInput {
  * Fluxo unico usado tanto para "individual em lote" quanto "turma toda"
  * (secao 4.2): a UI so muda como preenche `alunoIds` (subconjunto marcado
  * ou todos os matriculados). Gera UMA transacao por aluno com o mesmo
- * lote_id, propagando RN-01 para cada um.
+ * lote_id. So mexe no saldo pessoal do aluno - RN-01 original (propagacao
+ * automatica para turma/Casa) foi SUBSTITUIDA pelo sistema de investimentos,
+ * ver INVESTIMENTOS.md e investmentService.ts.
  */
 export async function distribuirPontos(input: DistribuirPontosInput) {
   const { turmaId, alunoIds, valor, motivo, autorId, autorPapel } = input;
@@ -83,25 +85,11 @@ export async function distribuirPontos(input: DistribuirPontosInput) {
   const delta = calcularPropagacaoCredito(valor);
   const data = input.data ?? new Date();
 
-  // RN-02: tudo em uma unica transacao de banco. RN-01: cada aluno gera sua
-  // propria transacao + atualiza os 3 saldos.
+  // RN-02: tudo em uma unica transacao de banco. Credito so mexe no saldo
+  // pessoal do aluno (RN-01 original SUBSTITUIDA - ver INVESTIMENTOS.md:
+  // turma/Casa so crescem quando o aluno decide investir ali, nunca mais
+  // automaticamente aqui).
   await prisma.$transaction(async (tx) => {
-    // Garante os registros de periodo da turma para o ano vigente (podem nao existir
-    // ainda se a turma foi criada depois do inicio do ano - upsert defensivo).
-    const turmaPeriodo = await tx.turmaPeriodo.upsert({
-      where: { turmaId_anoLetivoId: { turmaId, anoLetivoId: anoLetivo.id } },
-      update: {},
-      create: { turmaId, anoLetivoId: anoLetivo.id },
-    });
-
-    await tx.turmaPeriodo.update({
-      where: { id: turmaPeriodo.id },
-      data: {
-        saldoAtual: { increment: delta.turma.saldoAtual * alunoIds.length },
-        saldoAcumulado: { increment: delta.turma.saldoAcumulado * alunoIds.length },
-      },
-    });
-
     for (const matricula of matriculas) {
       const aluno = matricula.aluno;
 
@@ -112,21 +100,6 @@ export async function distribuirPontos(input: DistribuirPontosInput) {
           saldoAcumulado: { increment: delta.aluno.saldoAcumulado },
         },
       });
-
-      if (aluno.casaId) {
-        const casaPeriodo = await tx.casaPeriodo.upsert({
-          where: { casaId_anoLetivoId: { casaId: aluno.casaId, anoLetivoId: anoLetivo.id } },
-          update: {},
-          create: { casaId: aluno.casaId, anoLetivoId: anoLetivo.id },
-        });
-        await tx.casaPeriodo.update({
-          where: { id: casaPeriodo.id },
-          data: {
-            saldoAtual: { increment: delta.casa.saldoAtual },
-            saldoAcumulado: { increment: delta.casa.saldoAcumulado },
-          },
-        });
-      }
 
       await tx.transacao.create({
         data: {

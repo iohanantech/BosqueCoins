@@ -14,6 +14,11 @@ import {
   excluirProfessoresDoRanking,
   itemPermiteEscopo,
   LIMITE_PROFESSOR_COMUM_POR_LOTE,
+  calcularValorComJuros,
+  ehInvestimentoReversivel,
+  ehInvestimentoIrreversivel,
+  validarPodeResgatar,
+  calcularDeltaInvestimentoColetivo,
 } from "@/lib/services/regras";
 
 describe("RN-14 — limite de valor para professor comum", () => {
@@ -91,12 +96,12 @@ describe("RN-09 — escopo do PEC", () => {
   });
 });
 
-describe("RN-01 — propagacao tripla", () => {
-  it("credito de N pontos soma N em aluno, turma e casa, atual e acumulado", () => {
+describe("RN-01 (substituida — ver INVESTIMENTOS.md) — credito so no saldo pessoal do aluno", () => {
+  it("credito de N pontos soma N no aluno, atual e acumulado - NAO propaga mais para turma/Casa", () => {
     const delta = calcularPropagacaoCredito(7);
     expect(delta.aluno).toEqual({ saldoAtual: 7, saldoAcumulado: 7 });
-    expect(delta.turma).toEqual({ saldoAtual: 7, saldoAcumulado: 7 });
-    expect(delta.casa).toEqual({ saldoAtual: 7, saldoAcumulado: 7 });
+    expect(delta).not.toHaveProperty("turma");
+    expect(delta).not.toHaveProperty("casa");
   });
 });
 
@@ -104,6 +109,67 @@ describe("RN-04 — resgate individual nao afeta agregados", () => {
   it("so gera delta de saldoAtual do aluno, nada de turma/casa/acumulado", () => {
     const delta = calcularDebitoResgateIndividual(15);
     expect(delta).toEqual({ saldoAtual: -15 });
+  });
+});
+
+describe("RN-18 — calcularValorComJuros (juros compostos diarios)", () => {
+  it("0 dias decorridos retorna o principal exato", () => {
+    expect(calcularValorComJuros(100, 0.11, 0)).toBe(100);
+  });
+
+  it("365 dias decorridos retorna aproximadamente principal * (1 + taxaAnual)", () => {
+    const resultado = calcularValorComJuros(1000, 0.11, 365);
+    // Composto diario ao longo de 365 dias fica muito proximo da taxa anual nominal
+    expect(resultado).toBeGreaterThanOrEqual(1100);
+    expect(resultado).toBeLessThanOrEqual(1115);
+  });
+
+  it("taxas diferentes produzem valores diferentes na mesma janela de tempo", () => {
+    const comPoupanca = calcularValorComJuros(1000, 0.06, 180);
+    const comCdb = calcularValorComJuros(1000, 0.11, 180);
+    expect(comCdb).toBeGreaterThan(comPoupanca);
+  });
+
+  it("arredonda para inteiro (BosqueCoins nao tem fracao)", () => {
+    const resultado = calcularValorComJuros(37, 0.105, 42);
+    expect(Number.isInteger(resultado)).toBe(true);
+  });
+});
+
+describe("RN-16/RN-17 — reversibilidade dos tipos de investimento", () => {
+  it("casa e turma sao irreversiveis", () => {
+    expect(ehInvestimentoIrreversivel("casa")).toBe(true);
+    expect(ehInvestimentoIrreversivel("turma")).toBe(true);
+    expect(ehInvestimentoReversivel("casa")).toBe(false);
+    expect(ehInvestimentoReversivel("turma")).toBe(false);
+  });
+
+  it("cdb/poupanca/fundo_imobiliario/tesouro_direto sao reversiveis", () => {
+    for (const tipo of ["cdb", "poupanca", "fundo_imobiliario", "tesouro_direto"] as const) {
+      expect(ehInvestimentoReversivel(tipo)).toBe(true);
+      expect(ehInvestimentoIrreversivel(tipo)).toBe(false);
+    }
+  });
+});
+
+describe("RN-17/RN-20 — validarPodeResgatar", () => {
+  it("bloqueia resgate de investimento irreversivel (casa/turma)", () => {
+    expect(validarPodeResgatar("casa", "ativo").valido).toBe(false);
+    expect(validarPodeResgatar("turma", "ativo").valido).toBe(false);
+  });
+
+  it("bloqueia resgate de investimento ja resgatado (RN-20 - so uma vez)", () => {
+    expect(validarPodeResgatar("cdb", "resgatado").valido).toBe(false);
+  });
+
+  it("permite resgate de investimento reversivel ainda ativo", () => {
+    expect(validarPodeResgatar("cdb", "ativo").valido).toBe(true);
+  });
+});
+
+describe("RN-16 — calcularDeltaInvestimentoColetivo", () => {
+  it("investir em Casa/turma soma o valor no atual e no acumulado do periodo", () => {
+    expect(calcularDeltaInvestimentoColetivo(50)).toEqual({ saldoAtual: 50, saldoAcumulado: 50 });
   });
 });
 

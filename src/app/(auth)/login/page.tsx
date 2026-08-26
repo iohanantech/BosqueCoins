@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { CoinIcon } from "@/components/ui/coin-icon";
 import { Button } from "@/components/ui/button";
 import { AUTH_ERROR_CODES } from "@/lib/auth/options";
+import Image from "next/image";
 
 const MENSAGENS_ERRO: Record<string, string> = {
   [AUTH_ERROR_CODES.DOMINIO_INVALIDO]: "Use seu e-mail institucional do colégio (@bosquemananciais.org.br).",
@@ -71,9 +72,9 @@ function LoginContent() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-gradient-to-b from-neutral-50 to-neutral-100 px-6 dark:from-graphite dark:to-graphite-soft">
       <div className="w-full max-w-sm text-center">
-        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gold-gradient shadow-lg">
-          <CoinIcon className="h-11 w-11" />
-        </div>
+        <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center">
+  <Image src="/logo.png" alt="BosqueCoins" width={96} height={96} className="h-full w-full object-contain" priority />
+</div>
         <h1 className="font-display text-2xl font-bold">BosqueCoins</h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
           Gamificação escolar do Colégio Bosque dos Mananciais

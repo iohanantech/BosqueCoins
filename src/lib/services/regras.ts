@@ -97,22 +97,20 @@ export function validarEscopoPec(
 }
 
 /**
- * RN-01 — Propagacao tripla.
- * Dado um credito a um aluno, calcula os deltas a aplicar nos tres saldos
- * (aluno vitalicio, turma do ano, casa do ano), nas duas leituras
- * (atual e acumulado). Retorna os deltas; quem aplica no banco e o service.
+ * RN-01 (SUBSTITUIDA — ver INVESTIMENTOS.md) — Antes, um credito a um aluno
+ * propagava automaticamente para turma e Casa. Isso NAO existe mais: creditar
+ * um aluno so mexe no saldo pessoal dele (RN-15..RN-21). Turma/Casa só
+ * crescem quando o próprio aluno decide investir ali (irreversível, ver
+ * calcularDeltaInvestimentoColetivo abaixo). Mantido o mesmo nome de função
+ * para minimizar o diff nos call sites, mas o retorno agora tem só o aluno.
  */
-export interface DeltaPropagacao {
+export interface DeltaCredito {
   aluno: { saldoAtual: number; saldoAcumulado: number };
-  turma: { saldoAtual: number; saldoAcumulado: number };
-  casa: { saldoAtual: number; saldoAcumulado: number };
 }
 
-export function calcularPropagacaoCredito(valor: number): DeltaPropagacao {
+export function calcularPropagacaoCredito(valor: number): DeltaCredito {
   return {
     aluno: { saldoAtual: valor, saldoAcumulado: valor },
-    turma: { saldoAtual: valor, saldoAcumulado: valor },
-    casa: { saldoAtual: valor, saldoAcumulado: valor },
   };
 }
 
@@ -189,4 +187,53 @@ export function itemPermiteEscopo(
   escopoDesejado: "turma" | "individual"
 ): boolean {
   return escopoItem === "ambos" || escopoItem === escopoDesejado;
+}
+
+// ---------------------------------------------------------------------
+// Investimentos (INVESTIMENTOS.md, RN-15..RN-21)
+// ---------------------------------------------------------------------
+
+export type TipoInvestimento = "casa" | "turma" | "cdb" | "poupanca" | "fundo_imobiliario" | "tesouro_direto";
+
+const TIPOS_COLETIVOS_IRREVERSIVEIS: readonly TipoInvestimento[] = ["casa", "turma"];
+
+/** RN-16 — Investimento em Casa/turma e irreversivel (nao gera Investimento resgatavel). */
+export function ehInvestimentoIrreversivel(tipo: TipoInvestimento): boolean {
+  return TIPOS_COLETIVOS_IRREVERSIVEIS.includes(tipo);
+}
+
+/** RN-17 — os demais tipos (CDB/poupanca/FII/tesouro) sao reversiveis a qualquer momento. */
+export function ehInvestimentoReversivel(tipo: TipoInvestimento): boolean {
+  return !ehInvestimentoIrreversivel(tipo);
+}
+
+/** RN-17/RN-20 — so pode resgatar um investimento de tipo reversivel que ainda esteja ativo. */
+export function validarPodeResgatar(
+  tipo: TipoInvestimento,
+  status: "ativo" | "resgatado"
+): ValidacaoResultado {
+  if (ehInvestimentoIrreversivel(tipo)) {
+    return { valido: false, erro: "Investimentos em Casa ou turma são irreversíveis e não podem ser resgatados." };
+  }
+  if (status === "resgatado") {
+    return { valido: false, erro: "Este investimento já foi resgatado." };
+  }
+  return { valido: true };
+}
+
+/**
+ * RN-18 — juros compostos diarios sobre o principal, a partir da taxa anual
+ * media do tipo (congelada no momento do investimento - taxasInvestimento.ts).
+ * Arredonda so no final: BosqueCoins sao inteiros, e acumular arredondamento
+ * dia a dia distorceria o resultado em prazos longos.
+ */
+export function calcularValorComJuros(principal: number, taxaAnual: number, diasDecorridos: number): number {
+  const taxaDiaria = Math.pow(1 + taxaAnual, 1 / 365) - 1;
+  const valor = principal * Math.pow(1 + taxaDiaria, diasDecorridos);
+  return Math.round(valor);
+}
+
+/** RN-16 — delta a aplicar no periodo (turma ou Casa) do ano vigente ao investir de forma coletiva. */
+export function calcularDeltaInvestimentoColetivo(valor: number): { saldoAtual: number; saldoAcumulado: number } {
+  return { saldoAtual: valor, saldoAcumulado: valor };
 }

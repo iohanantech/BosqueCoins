@@ -31,6 +31,21 @@ enum DestinoTipo {
   aluno
   turma
   professor
+  casa
+}
+
+enum TipoInvestimento {
+  casa
+  turma
+  cdb
+  poupanca
+  fundo_imobiliario
+  tesouro_direto
+}
+
+enum StatusInvestimento {
+  ativo
+  resgatado
 }
 
 enum EscopoItem {
@@ -65,6 +80,7 @@ model AnoLetivo {
   casaPeriodos      CasaPeriodo[]
   transacoes        Transacao[]
   resgates          Resgate[]
+  investimentos     Investimento[]
 
   @@map("anos_letivos")
 }
@@ -82,8 +98,11 @@ model Usuario {
   casaId String? @map("casa_id")
   casa   Casa?   @relation(fields: [casaId], references: [id])
 
-  // Saldo VITALICIO - usado tanto por aluno quanto por professor (RN-01, RN-12).
+  // Saldo VITALICIO - usado tanto por aluno quanto por professor (RN-12).
   // Nunca reseta na virada do ano letivo. Nao se aplica a admin.
+  // Para o aluno, e o "dinheiro disponivel" ainda nao investido (RN-15..RN-21,
+  // ver INVESTIMENTOS.md) - creditar nao propaga mais automaticamente para
+  // turma/Casa, isso agora so acontece via Investimento (tipo casa|turma).
   saldoAtual     Int @default(0) @map("saldo_atual")
   saldoAcumulado Int @default(0) @map("saldo_acumulado")
 
@@ -93,6 +112,7 @@ model Usuario {
   transacoesOrigem    Transacao[]                @relation("TransacaoOrigem")
   resgatesSolicitados Resgate[]                  @relation("ResgateSolicitante")
   resgatesAprovados   Resgate[]                  @relation("ResgateAprovador")
+  investimentos       Investimento[]
 
   @@map("usuarios")
 }
@@ -262,4 +282,30 @@ model Resgate {
   @@index([anoLetivoId])
   @@index([status])
   @@map("resgates")
+}
+
+// Sistema de investimentos (INVESTIMENTOS.md, RN-15..RN-21) - substitui a
+// propagacao automatica que a RN-01 original fazia em distribuirPontos.
+// O aluno decide investir o proprio saldo em Casa/turma (irreversivel, sem
+// registro aqui - vira Transacao direto) ou num tipo reversivel (registrado
+// aqui, com taxa CONGELADA no momento do investimento - ver RN-18).
+model Investimento {
+  id               String              @id @default(uuid())
+  alunoId          String              @map("aluno_id")
+  tipo             TipoInvestimento
+  anoLetivoId      String?             @map("ano_letivo_id") // so quando tipo = casa|turma (nao deveria ocorrer no MVP - ver investmentService.ts, mas o schema permite para nao travar historico se um dia precisar registrar aqui tambem)
+  destinoTurmaId   String?             @map("destino_turma_id")
+  destinoCasaId    String?             @map("destino_casa_id")
+  valorPrincipal   Int                 @map("valor_principal")
+  taxaAnual        Float               @map("taxa_anual") // snapshot - nao muda se taxasInvestimento.ts mudar depois (RN-18)
+  status           StatusInvestimento  @default(ativo)
+  dataInvestimento DateTime            @default(now()) @map("data_investimento")
+  dataResgate      DateTime?           @map("data_resgate")
+  valorResgatado   Int?                @map("valor_resgatado")
+
+  aluno     Usuario    @relation(fields: [alunoId], references: [id])
+  anoLetivo AnoLetivo? @relation(fields: [anoLetivoId], references: [id])
+
+  @@index([alunoId, status])
+  @@map("investimentos")
 }
