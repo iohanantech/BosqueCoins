@@ -2,6 +2,20 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
+## Continuação — Fase 7 (tema, ferramentas administrativas)
+
+Implementado e commitado nesta sessão, todo `typecheck`/`lint`/testes unitários limpos e verificado manualmente no navegador (`npm run dev`) — **sem testes de integração/E2E novos ainda** para os endpoints administrativos abaixo (RN-08/09/10 deles, ex.: todos exigem admin, não têm cobertura automatizada, só verificação manual; a suíte existente continua passando):
+
+1. **Tema verde (era dourado)** — `tailwind.config.ts` (tokens `gold`/`gold-gradient` agora têm valores verdes, nomes mantidos de propósito pra não precisar tocar em cada arquivo), `CoinIcon` (SVG), ícones do PWA regenerados, `theme_color` em `manifest.json`/`layout.tsx`, accent do checkbox em `/pontuar`. Login: fundo 100% branco, botão "Entrar com Google" com gradiente verde próprio (`src/app/(auth)/login/page.tsx`). Topo do app: `logo.png` no lugar do `CoinIcon` genérico (`top-header.tsx`).
+2. **Modelo de planilha pra download** — `/admin/importar` ganhou links "Baixar modelo (.csv)" e "Baixar modelo (.xlsx)", arquivos estáticos em `public/templates/`, gerados por `scripts/generate-import-template.mjs` (`npm run template:generate`).
+3. **CRUD de Casas** — admin cria e edita Casas (nome, cor primária/secundária, ativo/inativo) em `/admin/casas`. `POST /api/casas` e `PATCH /api/casas/:id`, ambos admin-only, com checagem de nome duplicado.
+4. **CRUD de Turmas (Salas) + matrícula de alunos** — em `/admin/turmas`: criar/editar nome e série, ativar/desativar (`POST`/`PATCH /api/turmas/:id`; `GET /api/turmas?todas=true` admin-only inclui inativas, pra tela de gerenciamento poder reativá-las — sem o parâmetro continua só ativas, usado em `/pontuar`). Além disso, o admin agora também matricula (ou remaneja) e remove alunos de uma turma direto na tela, via `POST`/`DELETE /api/turmas/:id/alunos` — como `Matricula` só permite uma turma por aluno por ano letivo, adicionar um aluno já matriculado noutra turma o move para a nova.
+5. **Cadastro individual de professor + marcar PEC** — `/admin/professores` ganhou um card "Novo professor" (nome, e-mail, chips pra marcar em quais turmas ele já entra como PEC no ano vigente). `POST /api/admin/professores`, valida domínio institucional (RN-10) e duplicidade, cria o vínculo `professor_pec_turmas` numa transação junto com o usuário.
+6. **Cadastro individual de administrador** — nova tela `/admin/administradores` (link no hub `/admin`), mesmo padrão do cadastro de professor: `POST /api/admin/administradores`, valida domínio institucional e duplicidade.
+7. **Editar e excluir itens do catálogo** — `/admin/catalogo` ganhou um formulário de edição completo por item (antes só dava pra ativar/desativar) e um botão de excluir. `DELETE /api/catalog/:id` só remove o item se ele nunca foi resgatado (verifica `Resgate.count`); se já tem resgates no histórico, bloqueia com 400 e pede pra desativar em vez de excluir — evita quebrar o histórico de resgates.
+
+Próximo passo sugerido: adicionar testes de integração para os CRUDs administrativos (Casas, Turmas/matrícula, Professores, Administradores, Catálogo), seguindo o padrão de `tests/integration/api-authorization.test.ts`.
+
 ## Status (Sistema de Investimentos, INVESTIMENTOS.md)
 
 Implementado por completo: schema (`Investimento`, `DestinoTipo.casa`), regras puras (`calcularValorComJuros`, RN-15..RN-21), `investmentService.ts`, rotas `/api/investimentos`, RN-22 (só o PEC inicia resgate de escopo turma), UI (`/investir`, dashboard do aluno sem ranking de turmas + card "Investir" + instruções com virtudes). RN-01 original (propagação automática) foi removida de `distribuirPontos` e marcada como substituída em toda a documentação — creditar um aluno agora só mexe no saldo pessoal dele.
