@@ -48,12 +48,34 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ lotes: agrupadas, recebidas });
     }
 
-    // admin: tudo, com filtros simples via query params
+    // admin: tudo, com filtros via query params (secao "pendente" do CLAUDE.md - Fase 5)
     const filtros: Record<string, unknown> = { anoLetivoId: anoLetivo.id };
     const turmaId = req.nextUrl.searchParams.get("turmaId");
     const professorId = req.nextUrl.searchParams.get("professorId");
+    const casaId = req.nextUrl.searchParams.get("casaId");
+    const tipo = req.nextUrl.searchParams.get("tipo") as "credito" | "debito" | "ajuste" | null;
+    const dataInicio = req.nextUrl.searchParams.get("dataInicio");
+    const dataFim = req.nextUrl.searchParams.get("dataFim");
+
     if (professorId) filtros.origemUsuarioId = professorId;
-    if (turmaId) filtros.destinoId = turmaId;
+    if (turmaId) {
+      filtros.destinoTipo = "turma";
+      filtros.destinoId = turmaId;
+    }
+    if (tipo) filtros.tipo = tipo;
+    if (dataInicio || dataFim) {
+      filtros.criadoEm = {
+        ...(dataInicio ? { gte: new Date(dataInicio) } : {}),
+        ...(dataFim ? { lte: new Date(`${dataFim}T23:59:59.999`) } : {}),
+      };
+    }
+    if (casaId) {
+      // destinoId nao e uma FK tipada (pode ser aluno/turma/professor conforme
+      // destinoTipo) - filtrar por Casa exige resolver primeiro os alunos dela.
+      const alunosDaCasa = await prisma.usuario.findMany({ where: { casaId, papel: "aluno" }, select: { id: true } });
+      filtros.destinoTipo = "aluno";
+      filtros.destinoId = { in: alunosDaCasa.map((a) => a.id) };
+    }
 
     const todas = await prisma.transacao.findMany({ where: filtros, orderBy: { criadoEm: "desc" }, take: 500 });
     const agrupadas = agruparPorLote(todas);

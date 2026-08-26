@@ -112,6 +112,14 @@ Divergências entre o código escrito à mão e os tipos reais gerados pelo Pris
 - `importService.ts`: `workbook.Sheets[primeiraAba]` podia ser `undefined` para o TS — non-null assertion após o guard de planilha vazia já feito acima.
 - `.eslintrc.json` não carregava o plugin `@typescript-eslint` fora do fluxo padrão do Next (rule override `@typescript-eslint/no-unused-vars` falhava com "rule not found" via `npm run lint`) — adicionado `"plugins": ["@typescript-eslint"]` explicitamente.
 
+## Continuação — Fase 5 (itens pendentes)
+
+Os 3 itens da antiga seção "O que ficou pendente" (abaixo) foram resolvidos:
+
+1. **Filtros avançados do extrato do admin** — nova tela `/admin/extrato` (link no hub `/admin`), com UI de fato (não só query string): ano letivo, tipo de transação, turma, Casa, professor (origem), intervalo de datas. `GET /api/extrato` ganhou os parâmetros `casaId`, `tipo`, `dataInicio`, `dataFim` (o filtro por Casa resolve os alunos daquela Casa primeiro, já que `destinoId` não é uma FK tipada no schema). Também corrigido de passagem: o filtro por `turmaId` não fixava `destinoTipo: "turma"` explicitamente (funcionava por não haver colisão de UUID entre aluno/turma, mas estava semanticamente incompleto).
+2. **Ícones do PWA** — `scripts/generate-icons.mjs` (usa `sharp`, devDependency) gera `icon-192.png`/`icon-512.png` a partir do MESMO SVG/gradiente de `CoinIcon` (`src/components/ui/coin-icon.tsx`), então o ícone do PWA agora é visualmente idêntico ao ícone usado dentro do app. Rodar `npm run icons:generate` depois de qualquer mudança visual no `CoinIcon`.
+3. **PEC de múltiplas turmas simultaneamente** — já funcionava (o schema já suporta múltiplas linhas de `professor_pec_turmas` por professor/ano), mas não tinha teste dedicado. Adicionado `tests/integration/pecMultiTurma.test.ts` (4 testes): sem limite de RN-14 em nenhuma das turmas administradas, ajuste manual de saldo funciona nas duas, `GET /api/redemptions` mostra os resgates (turma e individuais) das duas turmas, e RN-09 continua bloqueando uma terceira turma não administrada.
+
 ## Continuação — Fase 4 (Playwright E2E)
 
 `tests/e2e/` (config em `playwright.config.ts`, script `npm run test:e2e`) - 12 testes, todos passando, cobrindo:
@@ -152,8 +160,6 @@ Adicionado um `CredentialsProvider` (`id: "dev"`) em `src/lib/auth/options.ts`, 
 
 ## O que ficou pendente / próximos passos sugeridos
 
-- Testes de integração reais contra Postgres (ex.: com Testcontainers) cobrindo os critérios de aceite end-to-end (login, RN-08, RN-09 via API).
-- Tela de detalhe/filtros avançados do extrato do admin (atualmente filtra só por `turmaId`/`professorId` via query string).
+- Testes de integração reais contra Postgres, filtros avançados do extrato do admin, Playwright E2E e ícones PWA finais — todos resolvidos, ver "Continuação — Fase 3/4/5" acima.
 - Upload de imagem do catálogo fica fora de escopo por design (custo zero — seção 7); campo `imagemUrl` aceita link externo.
-- Playwright E2E (marcado como opcional na especificação).
-- Ícones PWA (`public/icons/icon-192.png`, `icon-512.png`) foram gerados de forma simples e programática — vale trocar por uma arte final antes de publicar.
+- Validação contra Google OAuth real e Neon Postgres real ainda depende de credenciais que só o usuário possui (ver README.md) — todo o resto foi validado contra Postgres local.

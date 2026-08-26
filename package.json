@@ -20,6 +20,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
+    "icons:generate": "node scripts/generate-icons.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -50,6 +51,7 @@
     "eslint-config-next": "14.2.15",
     "postcss": "^8.4.45",
     "prisma": "^5.20.0",
+    "sharp": "^0.35.4",
     "tailwindcss": "^3.4.10",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4",
