@@ -16,6 +16,33 @@ Implementado e commitado nesta sessão, todo `typecheck`/`lint`/testes unitário
 
 Próximo passo sugerido: adicionar testes de integração para os CRUDs administrativos (Casas, Turmas/matrícula, Professores, Administradores, Catálogo), seguindo o padrão de `tests/integration/api-authorization.test.ts`.
 
+## Continuação — Fase 8 (auditoria de segurança + correções)
+
+Auditoria completa do sistema (75 arquivos, 27 rotas de API) em 2026-08-26. Três achados críticos foram **explorados de verdade** contra o servidor local (não só lidos no código) antes de corrigir, pra confirmar que eram reais e depois confirmar que a correção realmente fecha o buraco. Todos os 13 achados foram corrigidos ou resolvidos nesta sessão; `typecheck`/`lint`/`test`(40)/`test:integration`(44, 9 novos) limpos.
+
+**Críticos — corrida de condição (race condition), o mesmo defeito em 4 lugares:**
+Em `investmentService.ts::investir` (RN-06/15), `investmentService.ts::resgatarInvestimento` (RN-20), `redemptionService.ts::resolverResgate` (RN-06 + estoque) e `pointsService.ts::ajustarSaldoTurma` (débito), o saldo/status era conferido *fora* (ou lido-então-escrito *dentro*, o que sob o isolamento padrão do Postgres — Read Committed — não é atômico) da transação, e nunca reconferido no momento de escrever. Provado com 5 requisições concorrentes reais: um aluno com 13 moedas conseguiu ficar com saldo −52 investindo em Casa 5×; 5 moedas viraram 25 resgatando o mesmo investimento 5×; um resgate de 30 aprovado 5× cobrou 150 e deixou o estoque em −4. Corrigido trocando a leitura-então-escrita por uma escrita condicional atômica (`updateMany({ where: { ..., saldoAtual: { gte: valor } } })` / `where: { ..., status: "ativo"|"pendente" } }`, checando `count` antes de prosseguir) — o próprio banco arbitra quem chega primeiro, sem lock explícito. Reproduzido de novo depois da correção (mesmas 5 requisições concorrentes): só 1 sucesso, saldo/estoque sempre corretos. Testes em `tests/integration/concorrencia.test.ts`.
+
+**Alto — sessão não revalidada contra o banco:** `requireSession()` (`src/lib/auth/server.ts`) confiava só no JWT, que carrega uma cópia de `papel`/`ativo` tirada no login e vale até 30 dias — "Remover administrador" (Fase 7) marcava `ativo: false` no banco mas a sessão já aberta continuava com poderes de admin até expirar ou a pessoa deslogar. Provado: desativei uma admin com sessão aberta, ela continuou criando Casas e lendo dados de alunos. Corrigido: `requireSession()` agora relê `ativo`/`papel` do banco a cada requisição (uma consulta extra, barata no volume de uma escola) e usa o papel atual, não o do token. Testado em `tests/integration/api-authorization.test.ts` (desativar/rebaixar em runtime e confirmar 401/403 na próxima chamada, sem relogar).
+
+**Alto — dependência vulnerável:** `next` estava em `14.2.15`, com mais de 30 avisos de segurança publicados (incluindo bypass de autorização em middleware). Atualizado para `14.2.35` (última da linha 14.x — não é a migração pra 16.x, que quebra a API de rotas).
+
+**Médio — importação confiava no `status` devolvido pelo cliente:** `POST /api/import/confirmar` recebia de volta o `status`/`usuarioExistenteId` que a pré-visualização calculou, sem reconferir — um payload forjado podia declarar `status: "ok"` pra um e-mail de domínio externo, ou apontar `usuarioExistenteId` pra sobrescrever a conta de outra pessoa. Corrigido: a rota agora só aceita os campos crus da planilha (`linhaImportacaoSchema`) e roda `validarLinhas()` de novo no servidor, ignorando qualquer status/id vindo do payload.
+
+**Médio — estoque negativo sem corrida:** resolvido junto com a correção de `resolverResgate` acima (decremento de estoque também virou condicional a `quantidadeDisponivel > 0`).
+
+**Médio — teto de 10 BosqueCoins do professor comum (RN-14) é por lote, sem limite acumulado:** avaliado e **mantido como está**, de propósito — decisão consciente, não um bug esquecido. Já era um pressuposto documentado (seção "Pressupostos assumidos" abaixo).
+
+**Baixo — catálogo vazava escopo de turma pro aluno:** `GET /api/catalog?escopo=turma` era aceito de qualquer papel; um aluno podia ver (só leitura — solicitar continuava bloqueado pela RN-22) os itens de turma. Corrigido: o papel do usuário decide o escopo efetivo, o parâmetro de query só serve pra professor/PEC alternarem a própria visão.
+
+**Baixo — agrupamento de lote no extrato colapsava transações não relacionadas:** `agruparPorLote` usava `destinoId` como chave pra transações sem `loteId` (ajustes, investimentos) — múltiplos ajustes na mesma turma, ou múltiplos investimentos do mesmo aluno, apareciam como um "lote" só. Corrigido pra usar o `id` da própria transação nesse caso.
+
+**Baixo — corte de 500 no extrato do admin podia partir um lote ao meio:** o `take` agora busca um lote bruto maior (2000) e o corte real acontece depois de agrupar, em unidade de lote (300), com uma flag `truncado` no retorno pra UI avisar quando refinar os filtros.
+
+**Baixo — `SUPER_ADMIN_EMAIL` tinha fallback embutido no código:** removido; sem a env var, `ehSuperAdmin` agora retorna `false` pra todo mundo (falha fechada) em vez de silenciosamente escolher um e-mail padrão.
+
+**Baixo — sem rate limiting em nenhuma rota:** avaliado, não corrigido nesta sessão — exigiria um serviço externo (ex.: Upstash) ou um limiter que funcione de fato em ambiente serverless (instâncias não compartilham memória entre si, então um limiter in-process daria falsa sensação de proteção). Fica como próximo passo se/quando isso for adicionado à infra.
+
 ## Status (Sistema de Investimentos, INVESTIMENTOS.md)
 
 Implementado por completo: schema (`Investimento`, `DestinoTipo.casa`), regras puras (`calcularValorComJuros`, RN-15..RN-21), `investmentService.ts`, rotas `/api/investimentos`, RN-22 (só o PEC inicia resgate de escopo turma), UI (`/investir`, dashboard do aluno sem ranking de turmas + card "Investir" + instruções com virtudes). RN-01 original (propagação automática) foi removida de `distribuirPontos` e marcada como substituída em toda a documentação — creditar um aluno agora só mexe no saldo pessoal dele.
