@@ -5,7 +5,7 @@
  */
 export default async function globalSetup() {
   const baseURL = "http://localhost:3100";
-  const rotas = ["/login", "/dashboard", "/pontuar", "/extrato", "/premios", "/pec", "/perfil", "/admin", "/admin/importar", "/admin/ano-letivo"];
+  const rotas = ["/login", "/dashboard", "/pontuar", "/extrato", "/premios", "/pec", "/perfil", "/investir", "/admin", "/admin/importar", "/admin/ano-letivo"];
 
   for (const rota of rotas) {
     try {

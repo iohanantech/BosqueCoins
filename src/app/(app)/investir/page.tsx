@@ -115,7 +115,7 @@ export default function InvestirPage() {
     <div className="space-y-4">
       <Card className="bg-gold-gradient text-graphite">
         <p className="text-xs font-medium opacity-80">Saldo disponível pra investir</p>
-        <p className="mt-1 flex items-center gap-2 text-3xl font-bold">
+        <p className="mt-1 flex items-center gap-2 text-3xl font-bold" data-testid="saldo-investir">
           <CoinIcon className="h-7 w-7" />
           {saldoAtual ?? "…"}
         </p>
@@ -134,6 +134,7 @@ export default function InvestirPage() {
           {OPCOES.map((o) => (
             <button
               key={o.tipo}
+              data-testid={`opcao-investir-${o.tipo}`}
               onClick={() => escolherTipo(o.tipo)}
               className={cn(
                 "rounded-xl2 border p-3 text-left transition",
@@ -154,6 +155,12 @@ export default function InvestirPage() {
         </div>
       </Card>
 
+      {feedback && (
+        <div className={cn("rounded-xl2 p-3 text-sm", feedback.tipo === "sucesso" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>
+          {feedback.texto}
+        </div>
+      )}
+
       {opcaoSelecionada && (
         <Card>
           <CardHeader>
@@ -166,12 +173,6 @@ export default function InvestirPage() {
             onChange={(e) => setValor(e.target.value.replace(/\D/g, ""))}
             placeholder="Ex.: 20"
           />
-
-          {feedback && (
-            <div className={cn("mt-3 rounded-xl2 p-3 text-sm", feedback.tipo === "sucesso" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>
-              {feedback.texto}
-            </div>
-          )}
 
           {opcaoSelecionada.irreversivel ? (
             !confirmando ? (
