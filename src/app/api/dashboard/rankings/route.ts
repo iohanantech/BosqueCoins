@@ -25,12 +25,18 @@ export async function GET(req: NextRequest) {
       buscarRankingCasas(anoLetivo.id),
     ]);
 
+    // "Ver a visão do aluno" (so admin): contexto pessoal de outro aluno, nao
+    // o proprio - RN-08 preservada porque so admin pode passar ?alunoId=
+    // (aluno continua so vendo o proprio, ignorando esse parametro).
+    const verComoAlunoId = req.nextUrl.searchParams.get("alunoId");
+    const alunoAlvoId = session.user.papel === "aluno" ? session.user.id : session.user.papel === "admin" ? verComoAlunoId : null;
+
     let contextoAluno = null;
-    if (session.user.papel === "aluno") {
+    if (alunoAlvoId) {
       // Contexto pessoal sempre usa o ANO VIGENTE para posicao de turma/Casa,
       // mesmo que o dashboard esteja olhando um ano anterior (secao 4.1, item 4)
       const anoVigente = await prisma.anoLetivo.findFirst({ where: { ativo: true } });
-      if (anoVigente) contextoAluno = await buscarContextoAluno(session.user.id, anoVigente.id);
+      if (anoVigente) contextoAluno = await buscarContextoAluno(alunoAlvoId, anoVigente.id);
     }
 
     const anosLetivos = await prisma.anoLetivo.findMany({ orderBy: { nome: "desc" } });

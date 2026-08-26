@@ -2,6 +2,12 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
+## Continuação — Fase 10 ("Ver a visão do aluno" para o admin)
+
+Nova tela `/admin/visao-aluno`: admin escolhe um aluno num seletor e vê o que ele veria — saldo/posição no ranking, resumo e lista de investimentos (ativos + histórico), extrato completo, resgates do catálogo. **Somente leitura, de propósito**: nenhum botão de ação (investir, resgatar, etc.) — é uma tela de consulta pro admin entender o que o aluno está vendo, não um "login como" nem um jeito de agir em nome dele.
+
+Implementado reaproveitando os endpoints que o próprio aluno usa, sem duplicar lógica de negócio: `GET /api/dashboard/rankings`, `GET /api/extrato` e `GET /api/investimentos` (esse já aceitava `?alunoId=` desde a Fase de investimentos) agora aceitam `?alunoId=` também nos dois primeiros — **só quando quem pede é admin**. RN-08 (privacidade do aluno) continua garantida nos três: professor ou aluno passando `?alunoId=` pro id de outra pessoa tem o parâmetro simplesmente ignorado (cai no próprio contexto/extrato deles, nunca no de terceiros) — coberto por teste de integração novo em `api-authorization.test.ts`. A página em si já fica fora do alcance de quem não é admin pelo middleware existente (`/admin/:path*`).
+
 ## Continuação — Fase 9 (doações: Dízimo e Lar do Idoso)
 
 Aluno agora pode doar o próprio saldo pra **Dízimo (Igreja)** e **Lar do Idoso**, além das 6 opções já existentes em `/investir`. São tipos novos em `TipoInvestimento` (migration `20260826200455_doacoes_dizimo_lar_idoso`, `ALTER TYPE` no Postgres — aplicada em dev e teste, falta aplicar em produção via `npm run prisma:deploy` no próximo deploy).

@@ -19,13 +19,19 @@ export async function GET(req: NextRequest) {
       ? { id: anoLetivoIdParam }
       : await getAnoLetivoAtivo();
 
-    if (session.user.papel === "aluno") {
+    // "Ver a visão do aluno" (so admin): mesmo formato do extrato do proprio
+    // aluno, mas para o alunoId pedido - RN-08 continua garantida porque so
+    // admin cai aqui (aluno/professor ignoram esse parametro, ver abaixo).
+    const verComoAlunoId = req.nextUrl.searchParams.get("alunoId");
+    const alunoAlvoId = session.user.papel === "aluno" ? session.user.id : session.user.papel === "admin" ? verComoAlunoId : null;
+
+    if (alunoAlvoId) {
       const transacoes = await prisma.transacao.findMany({
-        where: { destinoTipo: "aluno", destinoId: session.user.id, anoLetivoId: anoLetivo.id },
+        where: { destinoTipo: "aluno", destinoId: alunoAlvoId, anoLetivoId: anoLetivo.id },
         orderBy: { criadoEm: "desc" },
       });
       const resgates = await prisma.resgate.findMany({
-        where: { alunoId: session.user.id, anoLetivoId: anoLetivo.id },
+        where: { alunoId: alunoAlvoId, anoLetivoId: anoLetivo.id },
         include: { item: true },
         orderBy: { criadoEm: "desc" },
       });

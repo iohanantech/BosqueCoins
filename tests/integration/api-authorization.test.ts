@@ -304,3 +304,64 @@ describe("Achado #4 (auditoria) - sessão revalidada contra o banco, não só o 
     expect(res.status).toBe(403); // requirePapel("admin") agora ve o papel atual do banco
   });
 });
+
+describe("\"Ver a visão do aluno\" - so admin pode ver os dados de OUTRO aluno", () => {
+  it("admin consegue ver o extrato e o contexto pessoal de um aluno via ?alunoId=", async () => {
+    const { admin, alunoA1, turmaA, professorPec } = await criarFixtureBase();
+    const { distribuirPontos } = await import("@/lib/services/pointsService");
+    await distribuirPontos({
+      turmaId: turmaA.id,
+      alunoIds: [alunoA1.id],
+      valor: 30,
+      motivo: "Base",
+      autorId: professorPec.id,
+      autorPapel: "professor",
+    });
+
+    logarComo(admin, "admin");
+
+    const { GET: getRankings } = await import("@/app/api/dashboard/rankings/route");
+    const resRankings = await getRankings(new NextRequest(`http://localhost/api/dashboard/rankings?alunoId=${alunoA1.id}`));
+    const jsonRankings = await resRankings.json();
+    expect(jsonRankings.contextoAluno.saldoPessoalAtual).toBe(30);
+
+    const { GET: getExtrato } = await import("@/app/api/extrato/route");
+    const resExtrato = await getExtrato(new NextRequest(`http://localhost/api/extrato?alunoId=${alunoA1.id}`));
+    const jsonExtrato = await resExtrato.json();
+    expect(jsonExtrato.transacoes).toHaveLength(1);
+    expect(jsonExtrato.transacoes[0].valor).toBe(30);
+  });
+
+  it("professor NÃO consegue usar ?alunoId= para ver o contexto pessoal de um aluno (RN-08)", async () => {
+    const { professorComum, alunoA1 } = await criarFixtureBase();
+
+    logarComo(professorComum, "professor");
+    const { GET } = await import("@/app/api/dashboard/rankings/route");
+    const res = await GET(new NextRequest(`http://localhost/api/dashboard/rankings?alunoId=${alunoA1.id}`));
+    const json = await res.json();
+
+    expect(json.contextoAluno).toBeNull(); // ?alunoId= e ignorado pra quem nao e admin
+  });
+
+  it("aluno NÃO consegue usar ?alunoId= para ver o extrato de outro aluno (RN-08)", async () => {
+    const { alunoA1, alunoA2, turmaA, professorPec } = await criarFixtureBase();
+    const { distribuirPontos } = await import("@/lib/services/pointsService");
+    await distribuirPontos({
+      turmaId: turmaA.id,
+      alunoIds: [alunoA2.id],
+      valor: 99,
+      motivo: "Base",
+      autorId: professorPec.id,
+      autorPapel: "professor",
+    });
+
+    logarComo(alunoA1, "aluno"); // logado como A1, tentando espiar A2
+    const { GET } = await import("@/app/api/extrato/route");
+    const res = await GET(new NextRequest(`http://localhost/api/extrato?alunoId=${alunoA2.id}`));
+    const json = await res.json();
+
+    // Sempre o proprio extrato (A1, sem a transacao de 99 do A2) - o
+    // parametro alunoId e simplesmente ignorado quando quem pede nao e admin.
+    expect(json.transacoes.every((t: { valor: number }) => t.valor !== 99)).toBe(true);
+  });
+});
