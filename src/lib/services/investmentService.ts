@@ -61,7 +61,17 @@ async function investirColetivo(params: {
   const delta = calcularDeltaInvestimentoColetivo(valor);
 
   return prisma.$transaction(async (tx) => {
-    await tx.usuario.update({ where: { id: aluno.id }, data: { saldoAtual: { decrement: valor } } });
+    // RN-06/RN-15: debito condicional dentro da transacao - a checagem feita
+    // antes de abrir a transacao (em investir()) NAO e suficiente sozinha:
+    // duas requisicoes concorrentes passam ambas por ela antes de qualquer
+    // uma debitar, permitindo saldo negativo. Aqui o proprio UPDATE so afeta
+    // a linha se saldoAtual >= valor ainda for verdade NAQUELE INSTANTE -
+    // quem perder a corrida tem count === 0 e a transacao e abortada.
+    const debitado = await tx.usuario.updateMany({
+      where: { id: aluno.id, saldoAtual: { gte: valor } },
+      data: { saldoAtual: { decrement: valor } },
+    });
+    if (debitado.count === 0) throw new ApiError(400, "Saldo atual insuficiente para esta operação.");
 
     if (tipo === "casa") {
       if (!aluno.casaId) throw new ApiError(400, "Este aluno não tem Casa vinculada.");
@@ -151,7 +161,12 @@ async function investirReversivel(params: {
   const taxaAnual = TAXAS_ANUAIS[tipo];
 
   return prisma.$transaction(async (tx) => {
-    await tx.usuario.update({ where: { id: aluno.id }, data: { saldoAtual: { decrement: valor } } });
+    // Mesmo debito condicional de investirColetivo - ver comentario acima.
+    const debitado = await tx.usuario.updateMany({
+      where: { id: aluno.id, saldoAtual: { gte: valor } },
+      data: { saldoAtual: { decrement: valor } },
+    });
+    if (debitado.count === 0) throw new ApiError(400, "Saldo atual insuficiente para esta operação.");
 
     const investimento = await tx.investimento.create({
       data: {
@@ -202,6 +217,18 @@ export async function resgatarInvestimento(input: ResgatarInvestimentoInput) {
   const anoLetivo = await getAnoLetivoAtivo();
 
   return prisma.$transaction(async (tx) => {
+    // RN-20: fecha o investimento PRIMEIRO, de forma condicional a ele ainda
+    // estar "ativo" naquele instante - so quem vence a corrida (count === 1)
+    // segue para creditar o aluno. A checagem feita antes da transacao
+    // (validarPodeResgatar acima) e so um fast-fail para o caso comum; sem
+    // esta segunda checagem atomica, N requisicoes concorrentes creditam o
+    // mesmo investimento N vezes (moeda duplicada, nao so saldo negativo).
+    const fechado = await tx.investimento.updateMany({
+      where: { id: investimento.id, status: "ativo" },
+      data: { status: "resgatado", dataResgate: new Date(), valorResgatado: valorComJuros },
+    });
+    if (fechado.count === 0) throw new ApiError(400, "Este investimento já foi resgatado.");
+
     await tx.usuario.update({
       where: { id: investimento.alunoId },
       data: {
@@ -211,10 +238,7 @@ export async function resgatarInvestimento(input: ResgatarInvestimentoInput) {
       },
     });
 
-    const atualizado = await tx.investimento.update({
-      where: { id: investimento.id },
-      data: { status: "resgatado", dataResgate: new Date(), valorResgatado: valorComJuros },
-    });
+    const atualizado = await tx.investimento.findUniqueOrThrow({ where: { id: investimento.id } });
 
     await tx.transacao.create({
       data: {

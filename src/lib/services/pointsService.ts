@@ -193,23 +193,38 @@ export async function ajustarSaldoTurma(input: AjustarSaldoTurmaInput) {
   const delta = calcularAjusteTurma(input.valor, input.direcao);
 
   await prisma.$transaction(async (tx) => {
+    // Garante que a linha do periodo existe antes do ajuste condicional abaixo
+    // (upsert puro, sem decidir nada com o valor lido - ver comentario no debito).
     const turmaPeriodo = await tx.turmaPeriodo.upsert({
       where: { turmaId_anoLetivoId: { turmaId: input.turmaId, anoLetivoId: anoLetivo.id } },
       update: {},
       create: { turmaId: input.turmaId, anoLetivoId: anoLetivo.id },
     });
 
-    if (input.direcao === "debito" && turmaPeriodo.saldoAtual + delta.saldoAtual < 0) {
-      throw new ApiError(400, "Saldo atual da turma insuficiente para este ajuste.");
+    if (input.direcao === "debito") {
+      // Debito condicional dentro da transacao: ler turmaPeriodo.saldoAtual e
+      // so DEPOIS escrever (mesmo dentro de uma transacao) nao e atomico sob
+      // o isolamento padrao do Postgres (Read Committed) - dois ajustes de
+      // debito concorrentes podem ambos ler o mesmo saldo e ambos passarem,
+      // deixando a turma negativa. O UPDATE abaixo so afeta a linha se
+      // saldoAtual + delta ainda for >= 0 naquele instante.
+      const debitado = await tx.turmaPeriodo.updateMany({
+        where: { id: turmaPeriodo.id, saldoAtual: { gte: -delta.saldoAtual } },
+        data: {
+          saldoAtual: { increment: delta.saldoAtual },
+          saldoAcumulado: { increment: delta.saldoAcumulado },
+        },
+      });
+      if (debitado.count === 0) throw new ApiError(400, "Saldo atual da turma insuficiente para este ajuste.");
+    } else {
+      await tx.turmaPeriodo.update({
+        where: { id: turmaPeriodo.id },
+        data: {
+          saldoAtual: { increment: delta.saldoAtual },
+          saldoAcumulado: { increment: delta.saldoAcumulado },
+        },
+      });
     }
-
-    await tx.turmaPeriodo.update({
-      where: { id: turmaPeriodo.id },
-      data: {
-        saldoAtual: { increment: delta.saldoAtual },
-        saldoAcumulado: { increment: delta.saldoAcumulado },
-      },
-    });
 
     await tx.transacao.create({
       data: {

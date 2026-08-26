@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/auth/server";
-import { validarDebitoNaoNegativo, itemPermiteEscopo } from "@/lib/services/regras";
+import { itemPermiteEscopo } from "@/lib/services/regras";
 import { getAnoLetivoAtivo, ehPecDaTurma } from "@/lib/services/pointsService";
 
 export interface SolicitarResgateInput {
@@ -98,18 +98,29 @@ export async function resolverResgate(input: ResolverResgateInput) {
     });
   }
 
-  // Aprovacao: debita e entrega, dentro de uma transacao com revalidacao de saldo.
+  // Aprovacao: debita e entrega, dentro de uma transacao com revalidacao de saldo/estoque.
   return prisma.$transaction(async (tx) => {
-    if (resgate.escopoUsado === "individual" && resgate.alunoId) {
-      const aluno = await tx.usuario.findUniqueOrThrow({ where: { id: resgate.alunoId } });
-      const check = validarDebitoNaoNegativo(aluno.saldoAtual, resgate.valorDebitado);
-      if (!check.valido) throw new ApiError(400, check.erro!);
+    // Fecha o resgate PRIMEIRO, de forma condicional a ele ainda estar
+    // "pendente" naquele instante - a checagem de status feita acima (antes
+    // da transacao) e so um fast-fail para o caso comum: aprovar o mesmo
+    // resgate 2x em paralelo (duplo clique, ou o mesmo PEC/admin em duas
+    // abas) passaria por ela nas duas chamadas antes de qualquer uma
+    // resolver. So quem vence esta corrida (count === 1) segue para debitar.
+    const fechado = await tx.resgate.updateMany({
+      where: { id: resgate.id, status: "pendente" },
+      data: { status: "aprovado", aprovadorId: input.aprovadorId, resolvidoEm: new Date() },
+    });
+    if (fechado.count === 0) throw new ApiError(400, "Este resgate já foi resolvido.");
 
-      await tx.usuario.update({
-        where: { id: aluno.id },
+    if (resgate.escopoUsado === "individual" && resgate.alunoId) {
+      // RN-06: debito condicional - so afeta a linha se saldoAtual >= valor
+      // ainda for verdade neste instante (mesmo raciocinio de investmentService).
+      const debitado = await tx.usuario.updateMany({
+        where: { id: resgate.alunoId, saldoAtual: { gte: resgate.valorDebitado } },
         data: { saldoAtual: { decrement: resgate.valorDebitado } },
         // RN-04: NAO mexe em saldoAcumulado nem em turma/Casa.
       });
+      if (debitado.count === 0) throw new ApiError(400, "Saldo atual insuficiente para esta operação.");
 
       await tx.transacao.create({
         data: {
@@ -119,21 +130,20 @@ export async function resolverResgate(input: ResolverResgateInput) {
           motivo: `Resgate: ${resgate.item.nome}`,
           origemUsuarioId: input.aprovadorId,
           destinoTipo: "aluno",
-          destinoId: aluno.id,
+          destinoId: resgate.alunoId,
         },
       });
     } else if (resgate.escopoUsado === "turma" && resgate.turmaId) {
-      const turmaPeriodo = await tx.turmaPeriodo.findUniqueOrThrow({
-        where: { turmaId_anoLetivoId: { turmaId: resgate.turmaId, anoLetivoId: resgate.anoLetivoId } },
-      });
-      const check = validarDebitoNaoNegativo(turmaPeriodo.saldoAtual, resgate.valorDebitado);
-      if (!check.valido) throw new ApiError(400, check.erro!);
-
-      await tx.turmaPeriodo.update({
-        where: { id: turmaPeriodo.id },
+      const debitado = await tx.turmaPeriodo.updateMany({
+        where: {
+          turmaId: resgate.turmaId,
+          anoLetivoId: resgate.anoLetivoId,
+          saldoAtual: { gte: resgate.valorDebitado },
+        },
         data: { saldoAtual: { decrement: resgate.valorDebitado } },
         // Resgate so debita o atual, nunca o acumulado (secao 4.4).
       });
+      if (debitado.count === 0) throw new ApiError(400, "Saldo atual insuficiente para esta operação.");
 
       await tx.transacao.create({
         data: {
@@ -149,15 +159,16 @@ export async function resolverResgate(input: ResolverResgateInput) {
     }
 
     if (resgate.item.quantidadeDisponivel !== null) {
-      await tx.itemCatalogo.update({
-        where: { id: resgate.itemId },
+      // Estoque tambem condicional - impede ir negativo mesmo fora de uma
+      // corrida (varios resgates pendentes aprovados em sequencia pro mesmo
+      // item com so 1 unidade).
+      const estoqueOk = await tx.itemCatalogo.updateMany({
+        where: { id: resgate.itemId, quantidadeDisponivel: { gt: 0 } },
         data: { quantidadeDisponivel: { decrement: 1 } },
       });
+      if (estoqueOk.count === 0) throw new ApiError(400, "Item sem estoque disponível.");
     }
 
-    return tx.resgate.update({
-      where: { id: resgate.id },
-      data: { status: "aprovado", aprovadorId: input.aprovadorId, resolvidoEm: new Date() },
-    });
+    return tx.resgate.findUniqueOrThrow({ where: { id: resgate.id } });
   });
 }
