@@ -77,20 +77,40 @@ export async function GET(req: NextRequest) {
       filtros.destinoId = { in: alunosDaCasa.map((a) => a.id) };
     }
 
-    const todas = await prisma.transacao.findMany({ where: filtros, orderBy: { criadoEm: "desc" }, take: 500 });
+    // Busca um lote de linhas cruas maior que o exibido - o corte real
+    // acontece DEPOIS de agrupar (ver comentario abaixo), nao aqui.
+    const LIMITE_BRUTO = 2000;
+    const todas = await prisma.transacao.findMany({ where: filtros, orderBy: { criadoEm: "desc" }, take: LIMITE_BRUTO });
     const agrupadas = agruparPorLote(todas);
-    return NextResponse.json({ lotes: agrupadas });
+
+    // Cortar as linhas CRUAS em 500 (como antes) podia partir um lote ao meio
+    // (ex.: um lançamento de 30 alunos aparecia com só 12) porque o corte não
+    // respeitava a fronteira do agrupamento. Aqui o corte é em LOTES (unidade
+    // que a UI de fato exibe), e se houver mais do que isso - ou se a busca
+    // crua já bateu no teto acima, sinal de que pode haver ainda mais - o
+    // front recebe `truncado: true` para avisar o admin a refinar os filtros.
+    const LIMITE_LOTES = 300;
+    const truncadoPorLimiteBruto = todas.length === LIMITE_BRUTO;
+    const truncado = agrupadas.length > LIMITE_LOTES || truncadoPorLimiteBruto;
+    const lotesExibidos = agrupadas.slice(0, LIMITE_LOTES);
+
+    return NextResponse.json({ lotes: lotesExibidos, truncado });
   } catch (error) {
     return handleApiError(error);
   }
 }
 
-type TransacaoLike = { loteId: string | null; valor: number; motivo: string; destinoId: string; criadoEm: Date };
+type TransacaoLike = { id: string; loteId: string | null; valor: number; motivo: string; destinoId: string; criadoEm: Date };
 
 function agruparPorLote(transacoes: TransacaoLike[]) {
   const grupos = new Map<string, TransacaoLike[]>();
   for (const t of transacoes) {
-    const chave = t.loteId ?? t.destinoId; // sem lote (ex.: ajuste) vira grupo de 1
+    // Sem loteId (ajuste de turma, investimento...), cada transacao e o seu
+    // proprio grupo de 1 - usar t.destinoId aqui (como antes) colapsava
+    // erradamente TODAS as transacoes sem lote de um mesmo destino (ex.:
+    // varios investimentos do mesmo aluno, ou varios ajustes na mesma turma)
+    // num unico "lote" fantasma, escondendo motivo/valor dos demais.
+    const chave = t.loteId ?? t.id;
     if (!grupos.has(chave)) grupos.set(chave, []);
     grupos.get(chave)!.push(t);
   }

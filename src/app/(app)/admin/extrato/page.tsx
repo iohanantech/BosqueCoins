@@ -36,6 +36,7 @@ const TIPOS = [
  */
 export default function AdminExtratoPage() {
   const [lotes, setLotes] = useState<Lote[]>([]);
+  const [truncado, setTruncado] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [loteExpandido, setLoteExpandido] = useState<string | null>(null);
 
@@ -80,6 +81,7 @@ export default function AdminExtratoPage() {
     const res = await fetch(`/api/extrato?${params.toString()}`);
     const json = await res.json();
     setLotes(json.lotes ?? []);
+    setTruncado(!!json.truncado);
     setCarregando(false);
   }
 
@@ -192,6 +194,12 @@ export default function AdminExtratoPage() {
       </Card>
 
       {carregando && <p className="py-6 text-center text-sm text-neutral-400">Carregando…</p>}
+
+      {!carregando && truncado && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+          Muitos resultados para estes filtros — mostrando só os mais recentes. Refine o período ou os filtros para ver o restante.
+        </p>
+      )}
 
       {!carregando && (
         <div className="space-y-2">
