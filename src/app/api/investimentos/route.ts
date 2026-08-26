@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession, handleApiError, ApiError, garantirAcessoProprioOuAdmin } from "@/lib/auth/server";
 import { investirSchema } from "@/lib/validation/schemas";
-import { investir, listarInvestimentos } from "@/lib/services/investmentService";
+import { investir, listarInvestimentos, resumoInvestimentos } from "@/lib/services/investmentService";
 
-/** GET /api/investimentos — lista os investimentos do aluno logado (ativos com valor atual + resgatados). */
+/**
+ * GET /api/investimentos — lista os investimentos do aluno logado (ativos
+ * com valor atual + resgatados). Com ?resumo=true, retorna so o resumo
+ * agregado usado no card "Investir" do dashboard (mais barato de calcular).
+ */
 export async function GET(req: NextRequest) {
   try {
     const session = await requireSession();
     const alunoIdParam = req.nextUrl.searchParams.get("alunoId");
     const alunoId = alunoIdParam ?? session.user.id;
     garantirAcessoProprioOuAdmin(session, alunoId);
+
+    if (req.nextUrl.searchParams.get("resumo") === "true") {
+      return NextResponse.json(await resumoInvestimentos(alunoId));
+    }
 
     const investimentos = await listarInvestimentos(alunoId);
     return NextResponse.json(investimentos);

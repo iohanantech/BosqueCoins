@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Coins, Receipt, Gift, User, ShieldCheck, ClipboardList } from "lucide-react";
+import { Home, Coins, Receipt, Gift, User, ShieldCheck, ClipboardList, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -13,8 +13,9 @@ interface NavItem {
 
 /**
  * Bottom tab bar (secao 9) - navegacao principal em mobile, nao menu lateral.
- * Itens variam por papel: aluno ve Início/Extrato/Prêmios/Perfil (secao 4.1);
- * professor/PEC ganham o atalho "Pontuar"; admin ganha "Admin".
+ * Itens variam por papel: aluno ve Início/Investir/Extrato/Prêmios/Perfil
+ * (secao 4.1, INVESTIMENTOS.md); professor/PEC ganham o atalho "Pontuar";
+ * admin ganha "Admin".
  */
 export function BottomNav({ papel }: { papel: "admin" | "professor" | "aluno" }) {
   const pathname = usePathname();
@@ -24,6 +25,7 @@ export function BottomNav({ papel }: { papel: "admin" | "professor" | "aluno" })
   const itensPapel: NavItem[] =
     papel === "aluno"
       ? [
+          { href: "/investir", label: "Investir", icon: TrendingUp },
           { href: "/extrato", label: "Extrato", icon: Receipt },
           { href: "/premios", label: "Prêmios", icon: Gift },
         ]

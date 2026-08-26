@@ -6,7 +6,9 @@ import { Card } from "@/components/ui/card";
 import { CoinIcon } from "@/components/ui/coin-icon";
 import { RankingTurmas, type TurmaRankingItem } from "@/components/dashboard/ranking-turmas";
 import { RankingCasas, type CasaRankingItem } from "@/components/dashboard/ranking-casas";
+import { InstrucoesInvestimento } from "@/components/dashboard/instrucoes-investimento";
 import Link from "next/link";
+import { TrendingUp } from "lucide-react";
 
 interface AnoLetivo {
   id: string;
@@ -31,9 +33,16 @@ interface RankingsResponse {
   anosLetivos: AnoLetivo[];
 }
 
+interface ResumoInvestimentos {
+  totalReversivelAtivo: number;
+  totalColetivoInvestido: number;
+  quantidadeAtivos: number;
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [dados, setDados] = useState<RankingsResponse | null>(null);
+  const [resumoInvestimentos, setResumoInvestimentos] = useState<ResumoInvestimentos | null>(null);
   const [anoSelecionado, setAnoSelecionado] = useState<string>("");
   const [modoTurmas, setModoTurmas] = useState<"total" | "media">("total");
   const [carregando, setCarregando] = useState(true);
@@ -58,6 +67,13 @@ export default function DashboardPage() {
   }, [modoTurmas]);
 
   const papel = session?.user?.papel;
+
+  useEffect(() => {
+    if (papel !== "aluno") return;
+    fetch("/api/investimentos?resumo=true")
+      .then((r) => r.json())
+      .then(setResumoInvestimentos);
+  }, [papel]);
 
   return (
     <div className="space-y-4">
@@ -115,11 +131,31 @@ export default function DashboardPage() {
         </Link>
       )}
 
+      {/* Investir (INVESTIMENTOS.md, secao 6) - substitui a propagacao automatica:
+          agora e o aluno quem decide o destino do proprio saldo. */}
+      {papel === "aluno" && (
+        <Link href="/investir">
+          <Card className="flex items-center justify-between bg-gold-gradient text-graphite">
+            <div>
+              <p className="font-display font-semibold">Investir</p>
+              <p className="text-xs opacity-80">
+                {resumoInvestimentos
+                  ? `${resumoInvestimentos.totalReversivelAtivo} rendendo · ${resumoInvestimentos.totalColetivoInvestido} já investidos na Casa/turma`
+                  : "Escolha o que fazer com seu saldo"}
+              </p>
+            </div>
+            <TrendingUp className="h-8 w-8" />
+          </Card>
+        </Link>
+      )}
+
+      {papel === "aluno" && <InstrucoesInvestimento />}
+
       {carregando && !dados ? (
         <p className="py-10 text-center text-sm text-neutral-400">Carregando rankings…</p>
       ) : dados ? (
         <>
-          <RankingTurmas dados={dados.turmas} modo={modoTurmas} onModoChange={setModoTurmas} />
+          {papel !== "aluno" && <RankingTurmas dados={dados.turmas} modo={modoTurmas} onModoChange={setModoTurmas} />}
           <RankingCasas dados={dados.casas} />
         </>
       ) : null}

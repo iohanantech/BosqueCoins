@@ -26,6 +26,12 @@ export default withAuth(
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
 
+    // /investir (INVESTIMENTOS.md) - so o aluno decide investir o proprio saldo (RN-15).
+    const somenteAluno = pathname.startsWith("/investir");
+    if (somenteAluno && papel !== "aluno") {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
+    }
+
     return NextResponse.next();
   },
   {
@@ -36,5 +42,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/pontuar/:path*", "/extrato/:path*", "/premios/:path*", "/perfil/:path*", "/admin/:path*", "/pec/:path*"],
+  matcher: ["/dashboard/:path*", "/pontuar/:path*", "/extrato/:path*", "/premios/:path*", "/perfil/:path*", "/admin/:path*", "/pec/:path*", "/investir/:path*"],
 };

@@ -246,4 +246,27 @@ export async function listarInvestimentos(alunoId: string) {
   });
 }
 
+/**
+ * Resumo usado no card "Investir" do dashboard do aluno: total ativo em
+ * investimentos reversiveis (com juros ate agora) e total ja investido de
+ * forma permanente em Casa/turma. O total coletivo e somado a partir das
+ * proprias Transacoes de investimento (destinoTipo casa/turma, originadas
+ * pelo aluno) - nao ha um registro de Investimento para elas (RN-16).
+ */
+export async function resumoInvestimentos(alunoId: string) {
+  const ativos = await prisma.investimento.findMany({ where: { alunoId, status: "ativo" } });
+  const totalReversivelAtivo = ativos.reduce((soma, inv) => {
+    const diasDecorridos = Math.floor((Date.now() - inv.dataInvestimento.getTime()) / (1000 * 60 * 60 * 24));
+    return soma + calcularValorComJuros(inv.valorPrincipal, inv.taxaAnual, diasDecorridos);
+  }, 0);
+
+  const coletivas = await prisma.transacao.findMany({
+    where: { origemUsuarioId: alunoId, destinoTipo: { in: ["casa", "turma"] } },
+    select: { valor: true },
+  });
+  const totalColetivoInvestido = coletivas.reduce((soma, t) => soma + t.valor, 0);
+
+  return { totalReversivelAtivo, totalColetivoInvestido, quantidadeAtivos: ativos.length };
+}
+
 export { ehInvestimentoReversivel };
