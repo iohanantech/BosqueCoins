@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/options";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 
 export class ApiError extends Error {
   status: number;
@@ -10,11 +11,31 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * O JWT guarda uma copia de papel/ativo tirada no momento do login, e a
+ * sessao dura ate 30 dias (padrao do NextAuth) - sem reconferir aqui contra o
+ * banco, desativar ou rebaixar alguem (ex.: "Remover administrador" em
+ * /admin/administradores) so faria efeito no proximo login dessa pessoa, nao
+ * imediatamente. Uma consulta a mais por requisicao e barata no volume de
+ * uma escola, e e o unico jeito de "remover acesso" significar isso de fato.
+ */
 export async function requireSession() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     throw new ApiError(401, "Nao autenticado.");
   }
+
+  const usuarioAtual = await prisma.usuario.findUnique({
+    where: { id: session.user.id },
+    select: { ativo: true, papel: true },
+  });
+  if (!usuarioAtual || !usuarioAtual.ativo) {
+    throw new ApiError(401, "Sua conta foi desativada. Faca login novamente.");
+  }
+
+  // Reflete o papel ATUAL do banco (nao o congelado no token) no resto da
+  // requisicao, para o caso de ter sido alterado desde o login.
+  session.user.papel = usuarioAtual.papel;
   return session;
 }
 
@@ -30,12 +51,14 @@ export async function requirePapel(...papeis: Array<"admin" | "professor" | "alu
 /**
  * Cadastrar/remover administradores e um poder reservado a UMA unica conta
  * (o coordenador responsavel), nao a qualquer admin - definido por e-mail via
- * env var (com fallback pra quem pediu essa restricao), nunca pelo papel.
+ * env var, nunca pelo papel. SEM fallback embutido no codigo: um ambiente
+ * sem essa variavel deve falhar de forma visivel, nao escolher em silencio
+ * quem manda.
  */
-const SUPER_ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL ?? "iohanan.carvalho@bosquemananciais.org.br").toLowerCase();
-
 export function ehSuperAdmin(session: { user: { email?: string | null } }) {
-  return session.user.email?.toLowerCase() === SUPER_ADMIN_EMAIL;
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase().trim();
+  if (!superAdminEmail) return false;
+  return session.user.email?.toLowerCase() === superAdminEmail;
 }
 
 /** Garante que o usuario logado E o super admin (unico com poder de gerenciar outros admins). */

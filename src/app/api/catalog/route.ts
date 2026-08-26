@@ -20,7 +20,12 @@ export async function GET(req: NextRequest) {
     }
 
     const todos = await prisma.itemCatalogo.findMany({ where: { ativo: true }, orderBy: { nome: "asc" } });
-    const escopoEfetivo = escopoParam ?? (session.user.papel === "aluno" ? "individual" : "turma");
+    // Aluno so pode ver individual+ambos (secao 4.3) - o parametro de query
+    // e so uma conveniencia para professor/PEC alternar a propria visao, nunca
+    // uma escolha livre: sem essa trava, ?escopo=turma deixava um aluno ver
+    // (so leitura - solicitar continua bloqueado pela RN-22) o catalogo de turma.
+    const escopoEfetivo =
+      session.user.papel === "aluno" ? "individual" : (escopoParam ?? "turma");
     const filtrados = todos.filter((i) => itemPermiteEscopo(i.escopo, escopoEfetivo));
     return NextResponse.json(filtrados);
   } catch (error) {

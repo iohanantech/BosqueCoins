@@ -116,3 +116,16 @@ export const confirmarImportacaoSchema = z.object({
   duplicados: z.enum(["atualizar", "pular"]),
   turmaCasaInexistente: z.enum(["criar", "rejeitar"]),
 });
+
+// So os campos "crus" da planilha - status e usuarioExistenteId sao
+// recalculados no servidor (ver /api/import/confirmar), nunca confiados do
+// payload: o cliente que devolve esses dois campos e o mesmo que os recebeu
+// da pre-visualizacao, entao um payload forjado poderia declarar qualquer
+// linha como "ok" ou apontar usuarioExistenteId para outra conta.
+export const linhaImportacaoSchema = z.object({
+  linha: z.number().int(),
+  nome: z.string(),
+  email: z.string(),
+  turma: z.string(),
+  casa: z.string(),
+});

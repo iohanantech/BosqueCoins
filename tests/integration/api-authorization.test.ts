@@ -178,3 +178,129 @@ describe("RN-22 - so o PEC inicia resgate de escopo turma (via API)", () => {
     expect(resAprovar.status).toBe(200);
   });
 });
+
+describe("Achado #9 (auditoria) - aluno não consegue forçar ?escopo=turma no catálogo", () => {
+  it("aluno pedindo ?escopo=turma continua só vendo itens individual+ambos", async () => {
+    const { alunoA1 } = await criarFixtureBase();
+    const { prisma } = await import("./setup");
+    await prisma.itemCatalogo.create({
+      data: { nome: "Passeio de turma", descricao: "x", custo: 10, categoria: "Experiencias", escopo: "turma" },
+    });
+    await prisma.itemCatalogo.create({
+      data: { nome: "Caneca individual", descricao: "x", custo: 10, categoria: "Brindes", escopo: "individual" },
+    });
+
+    logarComo(alunoA1, "aluno");
+    const { GET } = await import("@/app/api/catalog/route");
+    const req = new NextRequest("http://localhost/api/catalog?escopo=turma");
+    const res = await GET(req);
+    const itens = await res.json();
+
+    expect(itens.some((i: { nome: string }) => i.nome === "Passeio de turma")).toBe(false);
+    expect(itens.some((i: { nome: string }) => i.nome === "Caneca individual")).toBe(true);
+  });
+});
+
+describe("Achado #6 (auditoria) - confirmação de importação não confia no status vindo do cliente", () => {
+  it("linha forjada com status:'ok' pra e-mail de domínio externo NÃO cria o usuário", async () => {
+    const { turmaA, casaA, admin, anoLetivo } = await criarFixtureBase();
+
+    logarComo(admin, "admin");
+    const { POST } = await import("@/app/api/import/confirmar/route");
+    const req = new NextRequest("http://localhost/api/import/confirmar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        anoLetivoId: anoLetivo.id,
+        duplicados: "atualizar",
+        turmaCasaInexistente: "criar",
+        linhas: [
+          {
+            linha: 2,
+            nome: "Invasor",
+            email: "invasor@outraescola.com", // dominio externo (RN-10)
+            turma: turmaA.nome,
+            casa: casaA.nome,
+            status: "ok", // forjado - o servidor deve ignorar e recalcular
+          },
+        ],
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const resumo = await res.json();
+    expect(resumo.criados).toBe(0);
+    expect(resumo.falharam).toBe(1);
+
+    const { prisma } = await import("./setup");
+    const criado = await prisma.usuario.findUnique({ where: { email: "invasor@outraescola.com" } });
+    expect(criado).toBeNull();
+  });
+
+  it("usuarioExistenteId forjado (apontando pra outra conta) é ignorado - servidor resolve pelo e-mail de verdade", async () => {
+    const { turmaA, casaA, admin, alunoA1, alunoA2, anoLetivo } = await criarFixtureBase();
+
+    logarComo(admin, "admin");
+    const { POST } = await import("@/app/api/import/confirmar/route");
+    const req = new NextRequest("http://localhost/api/import/confirmar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        anoLetivoId: anoLetivo.id,
+        duplicados: "atualizar",
+        turmaCasaInexistente: "criar",
+        linhas: [
+          {
+            linha: 2,
+            nome: "Nome Trocado",
+            email: alunoA1.email, // dono de verdade: alunoA1
+            turma: turmaA.nome,
+            casa: casaA.nome,
+            status: "email_ja_existe_banco",
+            usuarioExistenteId: alunoA2.id, // forjado - tenta sobrescrever OUTRA conta
+          },
+        ],
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    const { prisma } = await import("./setup");
+    const a1 = await prisma.usuario.findUniqueOrThrow({ where: { id: alunoA1.id } });
+    const a2 = await prisma.usuario.findUniqueOrThrow({ where: { id: alunoA2.id } });
+    expect(a1.nome).toBe("Nome Trocado"); // atualizou o dono de verdade do e-mail
+    expect(a2.nome).not.toBe("Nome Trocado"); // NAO vazou pra conta forjada
+  });
+});
+
+describe("Achado #4 (auditoria) - sessão revalidada contra o banco, não só o token", () => {
+  it("admin desativado (ativo: false) perde acesso na PRÓXIMA requisição, mesmo sem relogar", async () => {
+    const { admin } = await criarFixtureBase();
+    const { prisma } = await import("./setup");
+
+    logarComo(admin, "admin"); // sessao mockada "congelada" continua dizendo papel: admin
+    await prisma.usuario.update({ where: { id: admin.id }, data: { ativo: false } }); // = botao "Remover"
+
+    const { GET } = await import("@/app/api/usuarios/route");
+    const req = new NextRequest("http://localhost/api/usuarios?papel=admin");
+    const res = await GET(req);
+
+    expect(res.status).toBe(401); // antes da correcao, isto retornava 200
+  });
+
+  it("admin rebaixado a professor no banco perde permissão de admin na próxima requisição", async () => {
+    const { admin } = await criarFixtureBase();
+    const { prisma } = await import("./setup");
+
+    logarComo(admin, "admin");
+    await prisma.usuario.update({ where: { id: admin.id }, data: { papel: "professor" } });
+
+    const { GET } = await import("@/app/api/usuarios/route");
+    const req = new NextRequest("http://localhost/api/usuarios?papel=admin");
+    const res = await GET(req);
+
+    expect(res.status).toBe(403); // requirePapel("admin") agora ve o papel atual do banco
+  });
+});
