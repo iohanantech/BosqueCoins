@@ -69,7 +69,7 @@ function LoginContent() {
   const erro = params.get("error");
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-gradient-to-b from-neutral-50 to-neutral-100 px-6 dark:from-graphite dark:to-graphite-soft">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-white px-6">
       <div className="w-full max-w-sm text-center">
         <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center">
   <Image src="/logo.png" alt="BosqueCoins" width={96} height={96} className="h-full w-full object-contain" priority />
@@ -87,7 +87,7 @@ function LoginContent() {
 
         <Button
           size="lg"
-          className="mt-8 w-full"
+          className="mt-8 w-full bg-[linear-gradient(135deg,#4ADE80_0%,#16A34A_50%,#15803D_100%)] text-white shadow-sm hover:brightness-105"
           onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
         >
           Entrar com Google

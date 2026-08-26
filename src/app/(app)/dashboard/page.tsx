@@ -101,7 +101,7 @@ export default function DashboardPage() {
 
       {/* Contexto pessoal (secao 4.1, item 3) */}
       {papel === "aluno" && dados?.contextoAluno && (
-        <Card className="bg-gold-gradient text-graphite">
+        <Card className="bg-gold-gradient text-white">
           <p className="text-xs font-medium opacity-80">Seu saldo (vitalício)</p>
           <p className="mt-1 flex items-center gap-2 text-3xl font-bold" data-testid="saldo-pessoal-atual">
             <CoinIcon className="h-7 w-7" />
@@ -121,7 +121,7 @@ export default function DashboardPage() {
 
       {(papel === "professor" || papel === "admin") && (
         <Link href="/pontuar">
-          <Card className="flex items-center justify-between bg-gold-gradient text-graphite">
+          <Card className="flex items-center justify-between bg-gold-gradient text-white">
             <div>
               <p className="font-display font-semibold">Dar BosqueCoins</p>
               <p className="text-xs opacity-80">Pontuar alunos ou a turma toda</p>
@@ -135,7 +135,7 @@ export default function DashboardPage() {
           agora e o aluno quem decide o destino do proprio saldo. */}
       {papel === "aluno" && (
         <Link href="/investir">
-          <Card className="flex items-center justify-between bg-gold-gradient text-graphite">
+          <Card className="flex items-center justify-between bg-gold-gradient text-white">
             <div>
               <p className="font-display font-semibold">Investir</p>
               <p className="text-xs opacity-80">

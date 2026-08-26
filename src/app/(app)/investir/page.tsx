@@ -113,7 +113,7 @@ export default function InvestirPage() {
 
   return (
     <div className="space-y-4">
-      <Card className="bg-gold-gradient text-graphite">
+      <Card className="bg-gold-gradient text-white">
         <p className="text-xs font-medium opacity-80">Saldo disponível pra investir</p>
         <p className="mt-1 flex items-center gap-2 text-3xl font-bold" data-testid="saldo-investir">
           <CoinIcon className="h-7 w-7" />

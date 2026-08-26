@@ -145,7 +145,7 @@ export default function PontuarPage() {
                 <label className="flex items-center gap-3 rounded-xl2 px-2 py-2.5 active:bg-neutral-100 dark:active:bg-graphite">
                   <input
                     type="checkbox"
-                    className="h-5 w-5 accent-[#D4AF37]"
+                    className="h-5 w-5 accent-[#16A34A]"
                     checked={alunosMarcados.has(aluno.id)}
                     onChange={() => alternarAluno(aluno.id)}
                   />

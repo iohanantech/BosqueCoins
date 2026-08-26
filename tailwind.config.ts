@@ -2,7 +2,8 @@ import type { Config } from "tailwindcss";
 
 // Design tokens per ESPECIFICACAO.md secao 10:
 // - Base neutra (branco / cinza-claro, modo escuro em grafite)
-// - Dourado reservado para destaques (nao usar em grandes areas de fundo)
+// - Verde reservado para destaques (nao usar em grandes areas de fundo) -
+//   trocado do dourado original para o verde institucional do colegio
 // - 4 cores das Casas sao aproximacoes documentadas na secao 12.1 do CLAUDE.md
 const config: Config = {
   darkMode: "class",
@@ -11,12 +12,12 @@ const config: Config = {
     extend: {
       colors: {
         gold: {
-          DEFAULT: "#D4AF37",
-          light: "#E8CC6E",
-          dark: "#A8842A",
+          DEFAULT: "#16A34A",
+          light: "#4ADE80",
+          dark: "#15803D",
         },
         amber: {
-          accent: "#C98A2C",
+          accent: "#15803D",
         },
         graphite: {
           DEFAULT: "#1C1C1E",
@@ -35,7 +36,9 @@ const config: Config = {
         display: ["var(--font-poppins)", "system-ui", "sans-serif"],
       },
       backgroundImage: {
-        "gold-gradient": "linear-gradient(135deg, #E8CC6E 0%, #D4AF37 45%, #C98A2C 100%)",
+        // Nome da classe mantido ("gold-gradient") para nao precisar tocar
+        // em toda a base de codigo - o VALOR agora e um gradiente verde.
+        "gold-gradient": "linear-gradient(135deg, #4ADE80 0%, #16A34A 50%, #15803D 100%)",
       },
       borderRadius: {
         xl2: "1.25rem",

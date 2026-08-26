@@ -1,6 +1,6 @@
 "use client";
 
-import { CoinIcon } from "@/components/ui/coin-icon";
+import Image from "next/image";
 import { signOut } from "next-auth/react";
 import { LogOut } from "lucide-react";
 
@@ -14,7 +14,7 @@ export function TopHeader({ nome, papel }: { nome: string; papel: string }) {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-graphite/95">
       <div className="flex items-center gap-2">
-        <CoinIcon className="h-7 w-7" />
+        <Image src="/logo.png" alt="BosqueCoins" width={28} height={28} className="h-7 w-7 object-contain" />
         <div>
           <p className="font-display text-sm font-semibold leading-tight">{nome}</p>
           <p className="text-xs text-neutral-500 dark:text-neutral-400">{papelLabel[papel] ?? papel}</p>

@@ -46,7 +46,7 @@ export function RankingTurmas({ dados, modo, onModoChange }: { dados: TurmaRanki
               <span
                 className={cn(
                   "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                  idx === 0 ? "bg-gold-gradient text-graphite" : "bg-neutral-200 text-neutral-600 dark:bg-graphite-soft dark:text-neutral-300"
+                  idx === 0 ? "bg-gold-gradient text-white" : "bg-neutral-200 text-neutral-600 dark:bg-graphite-soft dark:text-neutral-300"
                 )}
               >
                 {idx + 1}

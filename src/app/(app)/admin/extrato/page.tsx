@@ -182,7 +182,7 @@ export default function AdminExtratoPage() {
           </div>
         </div>
         <div className="mt-3 flex gap-2">
-          <button onClick={buscar} className="rounded-full bg-gold-gradient px-4 py-1.5 text-xs font-semibold text-graphite">
+          <button onClick={buscar} className="rounded-full bg-gold-gradient px-4 py-1.5 text-xs font-semibold text-white">
             Aplicar filtros
           </button>
           <button onClick={limparFiltros} className="rounded-full border border-neutral-200 px-4 py-1.5 text-xs text-neutral-500 dark:border-neutral-700">
