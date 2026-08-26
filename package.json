@@ -21,6 +21,7 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
     "icons:generate": "node scripts/generate-icons.mjs",
+    "template:generate": "node scripts/generate-import-template.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -75,6 +75,16 @@ export default function AdminImportarPage() {
         <p className="mb-2 text-sm font-medium">Arquivo (.csv ou .xlsx)</p>
         <p className="mb-3 text-xs text-neutral-500">Colunas esperadas: nome, email, turma, casa.</p>
         <input type="file" accept=".csv,.xlsx" onChange={enviarArquivo} className="text-sm" />
+
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-neutral-100 pt-3 text-xs dark:border-neutral-800">
+          <span className="text-neutral-400">Não sabe por onde começar?</span>
+          <a href="/templates/modelo-importacao.csv" download className="font-medium text-gold-dark hover:underline">
+            Baixar modelo (.csv)
+          </a>
+          <a href="/templates/modelo-importacao.xlsx" download className="font-medium text-gold-dark hover:underline">
+            Baixar modelo (.xlsx)
+          </a>
+        </div>
       </Card>
 
       {carregando && <p className="text-center text-sm text-neutral-400">Processando…</p>}
