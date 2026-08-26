@@ -5,8 +5,8 @@ import { distribuirPontos, pontuarProfessor, ajustarSaldoTurma } from "@/lib/ser
 import { buscarRankingTurmas, buscarRankingCasas } from "@/lib/services/rankingService";
 import { ApiError } from "@/lib/auth/server";
 
-describe("RN-01 + RN-02 - propagacao tripla atomica", () => {
-  it("credita aluno, turma e Casa ao mesmo tempo, atual e acumulado", async () => {
+describe("RN-01 (substituida) + RN-02 - credito so no aluno, atomico", () => {
+  it("credita SO o aluno (atual e acumulado) - NAO propaga mais para turma/Casa (ver INVESTIMENTOS.md)", async () => {
     const { turmaA, alunoA1, professorComum, anoLetivo, casaA } = await criarFixtureBase();
 
     await distribuirPontos({
@@ -22,17 +22,19 @@ describe("RN-01 + RN-02 - propagacao tripla atomica", () => {
     expect(aluno.saldoAtual).toBe(7);
     expect(aluno.saldoAcumulado).toBe(7);
 
+    // Turma/Casa NAO recebem nada automaticamente - continuam no zero do
+    // fixture. So crescem quando o aluno decide investir ali (RN-16).
     const turmaPeriodo = await prisma.turmaPeriodo.findUniqueOrThrow({
       where: { turmaId_anoLetivoId: { turmaId: turmaA.id, anoLetivoId: anoLetivo.id } },
     });
-    expect(turmaPeriodo.saldoAtual).toBe(7);
-    expect(turmaPeriodo.saldoAcumulado).toBe(7);
+    expect(turmaPeriodo.saldoAtual).toBe(0);
+    expect(turmaPeriodo.saldoAcumulado).toBe(0);
 
     const casaPeriodo = await prisma.casaPeriodo.findUniqueOrThrow({
       where: { casaId_anoLetivoId: { casaId: casaA.id, anoLetivoId: anoLetivo.id } },
     });
-    expect(casaPeriodo.saldoAtual).toBe(7);
-    expect(casaPeriodo.saldoAcumulado).toBe(7);
+    expect(casaPeriodo.saldoAtual).toBe(0);
+    expect(casaPeriodo.saldoAcumulado).toBe(0);
   });
 
   it("gera uma transacao por aluno, todas com o mesmo loteId", async () => {

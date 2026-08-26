@@ -30,6 +30,18 @@ describe("RN-04 - resgate individual isolado", () => {
       autorPapel: "professor",
     });
 
+    // Da saldo tambem pra turma/Casa (independente do credito ao aluno, ja
+    // que RN-01 nao propaga mais - ver INVESTIMENTOS.md), so pra confirmar
+    // que o resgate INDIVIDUAL nao mexe nesses valores de jeito nenhum.
+    await prisma.turmaPeriodo.update({
+      where: { turmaId_anoLetivoId: { turmaId: turmaA.id, anoLetivoId: anoLetivo.id } },
+      data: { saldoAtual: 50 },
+    });
+    await prisma.casaPeriodo.update({
+      where: { casaId_anoLetivoId: { casaId: casaA.id, anoLetivoId: anoLetivo.id } },
+      data: { saldoAtual: 50 },
+    });
+
     const item = await criarItemIndividual(20);
     const resgate = await solicitarResgate({
       itemId: item.id,
