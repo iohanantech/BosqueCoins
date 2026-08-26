@@ -2,6 +2,22 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
+## Status (Continuação — Fase 6, revisão final)
+
+Todas as 6 fases do `CONTINUACAO.md` foram concluídas. Suíte completa limpa: `npm run typecheck`, `npm run lint`, `npm run test` (30), `npm run test:integration` (25), `npm run test:e2e` (12) — todos passando, verificado contra um Postgres 17 local de verdade (não simulado). Ver as seções "Continuação — Fase N" abaixo para o detalhe de cada uma.
+
+**Nota sobre `ESPECIFICACAO.md`**: o `CONTINUACAO.md` original referencia esse arquivo (seção 13 - critérios de aceite) como já presente no repositório, mas ele **não existe** neste checkout — só `CLAUDE.md` e `README.md`. A revisão desta Fase 6 foi feita contra a tabela de RN-01..RN-14 deste arquivo (que é a fonte de verdade prática do projeto), não contra a especificação original seção por seção. Se `ESPECIFICACAO.md` aparecer depois, vale revisitar a seção 13 diretamente.
+
+**Bugs reais encontrados e corrigidos** (não apenas lacunas - comportamento errado que existia no código):
+1. `src/lib/services/anoLetivoService.ts` não existia, apesar de referenciado pela rota `/api/anos-letivos/encerrar` e documentado na tabela de RNs (Fase 1).
+2. `GET /api/redemptions` nunca retornava para o PEC os resgates individuais dos alunos das turmas que ele administra - só os de escopo turma - mesmo o PEC tendo permissão de aprová-los (Fase 4, achado pelo teste E2E de resgate).
+3. `rankingService.ts` tinha um `include` do Prisma inválido que quebraria em runtime assim que `prisma generate` rodasse de verdade (Fase 1).
+
+**O que ainda depende de credenciais reais do usuário** (não pode ser validado neste ambiente):
+- Login Google OAuth real (Client ID/Secret) contra o domínio `@bosquemananciais.org.br` de produção - o fluxo até a tela de erro do Google foi confirmado manualmente (ver Fase 2), mas não um login bem-sucedido de verdade.
+- Neon Postgres real (usamos Postgres 17 local via winget para todo o trabalho de verificação, seguindo a instrução do `CONTINUACAO.md` para quando faltar credencial real).
+- Deploy em produção (Vercel/Netlify) e o checklist de variáveis de ambiente do `README.md` seção 4.
+
 ## Stack
 
 - **Next.js 14 (App Router) + TypeScript**, front e back no mesmo projeto.
@@ -22,6 +38,8 @@ npm run typecheck          # tsc --noEmit
 npm run lint                # eslint
 npm run test                 # vitest run (regras de negócio - RN-01..RN-14, sem banco)
 npm run test:integration      # vitest run contra Postgres real - ver tests/integration/README.md
+npm run test:e2e              # Playwright E2E - ver tests/e2e/README.md
+npm run icons:generate         # regenera public/icons/icon-{192,512}.png a partir do CoinIcon
 npm run prisma:migrate        # cria/aplica migration em dev
 npm run prisma:deploy          # aplica migrations em produção
 npm run prisma:seed             # popula o banco com dados de desenvolvimento
@@ -135,7 +153,7 @@ Os 3 itens da antiga seção "O que ficou pendente" (abaixo) foram resolvidos:
 
 **Decisão de infraestrutura**: o `webServer` do Playwright roda com `next dev`, não build de produção - tentei build+start primeiro para eliminar a flakiness de compilação sob demanda, mas isso quebra o provider de login de dev *por design* (`DEV_AUTH_ENABLED` é ignorado quando `NODE_ENV=production`, ver Fase 2 - correto, não deve ser contornado). Em vez disso, `tests/e2e/global-setup.ts` "esquenta" as rotas principais antes da suíte começar, e `playwright.config.ts` tem `retries: 1` para absorver flakiness residual do dev server (ex.: um Fast Refresh completo).
 
-Banco dedicado: `bosquecoins_e2e` (nunca o de dev), migrado e semeado manualmente antes de rodar - ver `tests/e2e/README.md` (a criar se for reusar este setup depois; por ora, os comandos usados estão neste arquivo, seção "Continuação — Fase 4").
+Banco dedicado: `bosquecoins_e2e` (nunca o de dev), migrado e semeado manualmente antes de rodar - ver `tests/e2e/README.md`.
 
 ## Continuação — Fase 3 (testes de integração)
 
