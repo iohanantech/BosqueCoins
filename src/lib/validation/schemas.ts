@@ -99,6 +99,10 @@ export const criarAdminSchema = z.object({
   email: z.string().trim().toLowerCase().email("E-mail invalido."),
 });
 
+export const alterarAdminSchema = z.object({
+  ativo: z.boolean(),
+});
+
 export const atribuirAlunosTurmaSchema = z.object({
   alunoIds: z.array(z.string().uuid()).min(1, "Selecione ao menos um aluno."),
 });

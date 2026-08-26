@@ -28,6 +28,26 @@ export async function requirePapel(...papeis: Array<"admin" | "professor" | "alu
 }
 
 /**
+ * Cadastrar/remover administradores e um poder reservado a UMA unica conta
+ * (o coordenador responsavel), nao a qualquer admin - definido por e-mail via
+ * env var (com fallback pra quem pediu essa restricao), nunca pelo papel.
+ */
+const SUPER_ADMIN_EMAIL = (process.env.SUPER_ADMIN_EMAIL ?? "iohanan.carvalho@bosquemananciais.org.br").toLowerCase();
+
+export function ehSuperAdmin(session: { user: { email?: string | null } }) {
+  return session.user.email?.toLowerCase() === SUPER_ADMIN_EMAIL;
+}
+
+/** Garante que o usuario logado E o super admin (unico com poder de gerenciar outros admins). */
+export async function requireSuperAdmin() {
+  const session = await requirePapel("admin");
+  if (!ehSuperAdmin(session)) {
+    throw new ApiError(403, "So o administrador responsavel pode cadastrar ou remover outros administradores.");
+  }
+  return session;
+}
+
+/**
  * RN-08 — Privacidade do aluno: garante que o usuario so acessa os proprios
  * dados quando o recurso pertence a um aluno. Admin sempre pode.
  * Usar em toda rota que recebe um alunoId por parametro/payload.

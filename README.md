@@ -86,6 +86,7 @@ npm run test:e2e          # Playwright E2E - ver tests/e2e/README.md
 - [ ] `NEXTAUTH_URL` = URL pública de produção
 - [ ] `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
 - [ ] `ALLOWED_EMAIL_DOMAIN` = `bosquemananciais.org.br`
+- [ ] `SUPER_ADMIN_EMAIL` = e-mail do único administrador autorizado a cadastrar/remover outros administradores
 - [ ] Redirect URI de produção adicionado nas credenciais OAuth do Google Cloud Console
 
 ### 4.3 Após o primeiro deploy
