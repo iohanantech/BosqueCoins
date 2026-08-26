@@ -87,7 +87,7 @@ export default function DashboardPage() {
       {papel === "aluno" && dados?.contextoAluno && (
         <Card className="bg-gold-gradient text-graphite">
           <p className="text-xs font-medium opacity-80">Seu saldo (vitalício)</p>
-          <p className="mt-1 flex items-center gap-2 text-3xl font-bold">
+          <p className="mt-1 flex items-center gap-2 text-3xl font-bold" data-testid="saldo-pessoal-atual">
             <CoinIcon className="h-7 w-7" />
             {dados.contextoAluno.saldoPessoalAtual}
           </p>

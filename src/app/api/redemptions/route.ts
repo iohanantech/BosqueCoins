@@ -28,15 +28,23 @@ export async function GET() {
       return NextResponse.json(meus);
     }
 
-    // professor/PEC: resgates de turma das turmas que administra
+    // professor/PEC: resgates de turma das turmas que administra, MAIS os
+    // resgates individuais dos alunos matriculados nessas turmas (o PEC tem
+    // permissao de aprovar ambos - ver redemptionService.ts::resolverResgate -
+    // entao precisam aparecer aqui tambem, senao ficam invisiveis para ele).
     const anoLetivo = await getAnoLetivoAtivo();
     const minhasTurmas = await prisma.professorPecTurma.findMany({
       where: { professorId: session.user.id, anoLetivoId: anoLetivo.id },
       select: { turmaId: true },
     });
     const turmaIds = minhasTurmas.map((t) => t.turmaId);
+    const matriculasDasMinhasTurmas = await prisma.matricula.findMany({
+      where: { turmaId: { in: turmaIds }, anoLetivoId: anoLetivo.id },
+      select: { alunoId: true },
+    });
+    const alunoIds = matriculasDasMinhasTurmas.map((m) => m.alunoId);
     const daTurma = await prisma.resgate.findMany({
-      where: { turmaId: { in: turmaIds } },
+      where: { OR: [{ turmaId: { in: turmaIds } }, { alunoId: { in: alunoIds } }] },
       include: { item: true },
       orderBy: { criadoEm: "desc" },
     });

@@ -112,6 +112,23 @@ Divergências entre o código escrito à mão e os tipos reais gerados pelo Pris
 - `importService.ts`: `workbook.Sheets[primeiraAba]` podia ser `undefined` para o TS — non-null assertion após o guard de planilha vazia já feito acima.
 - `.eslintrc.json` não carregava o plugin `@typescript-eslint` fora do fluxo padrão do Next (rule override `@typescript-eslint/no-unused-vars` falhava com "rule not found" via `npm run lint`) — adicionado `"plugins": ["@typescript-eslint"]` explicitamente.
 
+## Continuação — Fase 4 (Playwright E2E)
+
+`tests/e2e/` (config em `playwright.config.ts`, script `npm run test:e2e`) - 12 testes, todos passando, cobrindo:
+
+- Login e navegação por papel (admin/professor/PEC/aluno) - bottom nav e conteúdo corretos por papel.
+- Fluxo completo de "Pontuar": turma → 3 alunos → valor/motivo → confirmar → extrato do professor mostra 1 lote agrupado e expansível.
+- Fluxo completo de resgate individual: aluno solicita → PEC aprova → saldo do aluno cai (via `data-testid="saldo-pessoal-atual"` em `dashboard/page.tsx`, único hook de teste adicionado ao código de produção).
+- Fluxo completo de importação: upload de `.xlsx` gerado em memória (`xlsx` package) → pré-visualização por linha com status → confirmar → resumo bate com o esperado.
+- Fluxo de encerramento de ano letivo → dashboard mostra o ano novo zerado e o anterior consultável. **Roda por último** (arquivo `zz-ano-letivo.spec.ts`, de propósito - fecha o ano ativo e por isso quebraria os testes seguintes se rodasse antes, já que `Matricula` é escopada por ano letivo).
+- Os 3 breakpoints da seção 9 (375/768/1280) via `page.setViewportSize()` dentro de `responsive.spec.ts`, não como projects separados (evita triplicar a suíte inteira).
+
+**Bug real encontrado e corrigido nesta fase**: `GET /api/redemptions` só retornava para o PEC os resgates de escopo `turma`, nunca os `individual` dos alunos das turmas que ele administra - mesmo o PEC tendo permissão de aprová-los (`redemptionService.ts::resolverResgate` já cobria esse caso). Corrigido em `src/app/api/redemptions/route.ts` (agora inclui `OR` com os `alunoId` matriculados nas turmas do PEC).
+
+**Decisão de infraestrutura**: o `webServer` do Playwright roda com `next dev`, não build de produção - tentei build+start primeiro para eliminar a flakiness de compilação sob demanda, mas isso quebra o provider de login de dev *por design* (`DEV_AUTH_ENABLED` é ignorado quando `NODE_ENV=production`, ver Fase 2 - correto, não deve ser contornado). Em vez disso, `tests/e2e/global-setup.ts` "esquenta" as rotas principais antes da suíte começar, e `playwright.config.ts` tem `retries: 1` para absorver flakiness residual do dev server (ex.: um Fast Refresh completo).
+
+Banco dedicado: `bosquecoins_e2e` (nunca o de dev), migrado e semeado manualmente antes de rodar - ver `tests/e2e/README.md` (a criar se for reusar este setup depois; por ora, os comandos usados estão neste arquivo, seção "Continuação — Fase 4").
+
 ## Continuação — Fase 3 (testes de integração)
 
 `tests/integration/` (config separada em `vitest.integration.config.mts`, script `npm run test:integration`) cobre contra um Postgres real (local, `bosquecoins_test` - nunca o de dev) o que a suíte de `regras.ts` não alcança por não tocar banco:
