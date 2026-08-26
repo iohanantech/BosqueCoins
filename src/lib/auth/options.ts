@@ -1,8 +1,18 @@
 import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
 
 const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN ?? "bosquemananciais.org.br";
+
+/**
+ * O provider de dev existe SÓ para permitir testar os 4 papéis sem depender
+ * das credenciais reais do Google OAuth (que só o time do colégio possui).
+ * NUNCA deve ir para produção: exige NODE_ENV !== 'production' *e* a env var
+ * explícita DEV_AUTH_ENABLED=true (nenhuma das duas sozinha basta). Ver README.
+ */
+export const DEV_AUTH_ENABLED =
+  process.env.NODE_ENV !== "production" && process.env.DEV_AUTH_ENABLED === "true";
 
 /**
  * Erros de login usados para mostrar mensagens claras na tela de login
@@ -29,6 +39,26 @@ export const authOptions: NextAuthOptions = {
         },
       },
     }),
+    ...(DEV_AUTH_ENABLED
+      ? [
+          CredentialsProvider({
+            id: "dev",
+            name: "Dev (sem Google)",
+            credentials: { email: { label: "E-mail", type: "text" } },
+            // So resolve um `usuarios` ja existente - passa pelas MESMAS checagens
+            // de dominio/cadastro/ativo do callback signIn abaixo. Nao cria conta,
+            // nao aceita senha: nao e um atalho para RN-08/RN-09/RN-12, so evita
+            // depender do Google para obter uma sessao valida.
+            async authorize(credentials) {
+              const email = credentials?.email?.toLowerCase().trim();
+              if (!email) return null;
+              const usuario = await prisma.usuario.findUnique({ where: { email } });
+              if (!usuario || !usuario.ativo) return null;
+              return { id: usuario.id, email: usuario.email, name: usuario.nome };
+            },
+          }),
+        ]
+      : []),
   ],
   session: {
     strategy: "jwt",
@@ -63,8 +93,8 @@ export const authOptions: NextAuthOptions = {
         return `/login?error=${AUTH_ERROR_CODES.CONTA_INATIVA}`;
       }
 
-      // No primeiro login bem-sucedido, grava o google_id no registro existente.
-      if (!usuarioExistente.googleId && account?.providerAccountId) {
+      // No primeiro login bem-sucedido via Google, grava o google_id no registro existente.
+      if (account?.provider === "google" && !usuarioExistente.googleId && account.providerAccountId) {
         await prisma.usuario.update({
           where: { id: usuarioExistente.id },
           data: { googleId: account.providerAccountId },

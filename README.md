@@ -44,6 +44,16 @@ npm install        # roda `prisma generate` automaticamente (postinstall)
 
 > Lembrete: o login só funciona para e-mails que já existem na tabela `usuarios` (pré-cadastro pelo admin, manual ou por planilha) — a restrição de domínio (`@bosquemananciais.org.br`) é validada no backend, nunca só pelo parâmetro `hd` do Google.
 
+### 2.2.1 Login de desenvolvimento (sem Google) — só em dev
+
+Testar os 4 papéis (admin, professor, PEC, aluno) sem configurar o Google OAuth real é possível com um provider extra, **desligado por padrão e que nunca deve ir para produção**:
+
+1. No `.env`, defina `DEV_AUTH_ENABLED="true"` (só tem efeito quando `NODE_ENV !== "production"` — em produção o próprio código ignora essa variável).
+2. Rode `npm run prisma:seed` para ter usuários de cada papel.
+3. Na tela `/login`, um seletor amarelo "Login de desenvolvimento" aparece abaixo do botão do Google, listando os usuários cadastrados — escolha um para entrar direto, sem senha.
+4. Esse provider (`CredentialsProvider` com id `"dev"`) só autentica e-mails que já existem em `usuarios` e passa pelas mesmas checagens de conta ativa/domínio do login real — não é um atalho para as regras de autorização (RN-08/RN-09/RN-12), só uma forma de obter uma sessão válida sem o Google.
+5. **Para desativar**: apague `DEV_AUTH_ENABLED` do `.env` (ou deixe `"false"`). Em produção, defina `NODE_ENV=production` normalmente (padrão de qualquer deploy) — isso já desativa o provider independentemente do valor de `DEV_AUTH_ENABLED`.
+
 ### 2.3 Rodar
 
 ```bash

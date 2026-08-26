@@ -97,9 +97,23 @@ Todas implementadas e comentadas no código-fonte, no arquivo/função correspon
 4. O limite de 10 pontos do professor comum é avaliado **por lote**, sem teto agregado por dia/período.
 5. A exceção de PEC (sem limite) vale só nas turmas administradas por ele naquele ano letivo — checado via `professor_pec_turmas`.
 
-## ⚠️ Limitação conhecida deste ambiente de build
+## ⚠️ Limitação conhecida deste ambiente de build (histórico)
 
-Este projeto foi montado num ambiente sandbox sem acesso de rede a `binaries.prisma.sh`, então **`prisma generate` nunca rodou aqui** — o código que depende de `@prisma/client` foi escrito à mão, sem o compilador confirmando os tipos gerados. Isso **não deve ser um problema no seu ambiente** (Claude Code, ou `npm install` local/CI com internet completa), já que o `postinstall` do `package.json` roda `prisma generate` automaticamente. Ainda assim, rode `npm run typecheck` como primeiro passo depois de clonar, e corrija qualquer divergência de tipo que aparecer — a lógica de negócio (regras.ts) já está 100% testada e não depende do Prisma.
+Este projeto foi montado originalmente num ambiente sandbox sem acesso de rede a `binaries.prisma.sh`, então `prisma generate` nunca tinha rodado e o TypeScript nunca tinha sido checado contra os tipos reais do Prisma Client. **Isso já foi corrigido** (ver "Continuação — Fase 1" abaixo); `npm install` + `npm run typecheck` + `npm run lint` rodam limpos agora. Histórico mantido aqui só para contexto de por que certos ajustes (ex.: `Turma.nome` virou `@unique`) foram feitos.
+
+## Continuação — Fase 1 (correções de compilação)
+
+Divergências entre o código escrito à mão e os tipos reais gerados pelo Prisma, corrigidas:
+
+- `Turma.nome` não era `@unique` no schema, mas `seed.ts` e `importService.ts` faziam `upsert`/`findUnique` por `nome` — adicionado `@unique` (decisão: nomes de turma são de fato únicos no domínio).
+- `src/lib/services/anoLetivoService.ts` **não existia** (referenciado por `src/app/api/anos-letivos/encerrar/route.ts` e documentado na tabela de RNs, mas nunca foi escrito) — implementado do zero: `encerrarAnoLetivo` marca o ano ativo como encerrado, cria o próximo já ativo; não mexe em `Usuario.saldoAtual/saldoAcumulado` (vitalício) nem apaga `TurmaPeriodo`/`CasaPeriodo` do ano anterior.
+- `rankingService.ts` tinha um `include: { _count: { select: {} } }` inválido (sobra de uma versão anterior) — removido; a contagem de alunos já é feita via `prisma.matricula.count` separado.
+- `importService.ts`: `workbook.Sheets[primeiraAba]` podia ser `undefined` para o TS — non-null assertion após o guard de planilha vazia já feito acima.
+- `.eslintrc.json` não carregava o plugin `@typescript-eslint` fora do fluxo padrão do Next (rule override `@typescript-eslint/no-unused-vars` falhava com "rule not found" via `npm run lint`) — adicionado `"plugins": ["@typescript-eslint"]` explicitamente.
+
+## Continuação — Fase 2 (login de desenvolvimento)
+
+Adicionado um `CredentialsProvider` (`id: "dev"`) em `src/lib/auth/options.ts`, ativo só quando `NODE_ENV !== "production" && process.env.DEV_AUTH_ENABLED === "true"` (flag `DEV_AUTH_ENABLED` exportada de lá). Ele só autentica e-mails que já existem em `usuarios` (sem senha), reaproveitando a mesma checagem de conta ativa que o login real — não é um atalho para RN-08/RN-09/RN-12. `GET /api/dev/usuarios` (também gated pela mesma flag, 404 caso contrário) alimenta um seletor na tela `/login` (`DevLoginPicker`). Ver seção 2.2.1 do `README.md` para como habilitar/desabilitar.
 
 ## O que ficou pendente / próximos passos sugeridos
 
