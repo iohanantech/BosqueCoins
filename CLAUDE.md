@@ -2,6 +2,20 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
+## Status (Sistema de Investimentos, INVESTIMENTOS.md)
+
+Implementado por completo: schema (`Investimento`, `DestinoTipo.casa`), regras puras (`calcularValorComJuros`, RN-15..RN-21), `investmentService.ts`, rotas `/api/investimentos`, RN-22 (só o PEC inicia resgate de escopo turma), UI (`/investir`, dashboard do aluno sem ranking de turmas + card "Investir" + instruções com virtudes). RN-01 original (propagação automática) foi removida de `distribuirPontos` e marcada como substituída em toda a documentação — creditar um aluno agora só mexe no saldo pessoal dele.
+
+Suíte completa verde após a mudança: 40 testes unitários (10 novos), 35 de integração (11 novos: `investmentService.test.ts` + 3 de RN-22), 14 E2E (2 novos: `investir.spec.ts`), `typecheck` e `lint` limpos.
+
+**Bugs reais encontrados e corrigidos nesta feature:**
+1. `confirmarInvestimento()` em `/investir` zerava `tipoSelecionado` no sucesso, o que desmontava o próprio `Card` que continha a mensagem de feedback — o aviso de sucesso/erro nunca aparecia na tela (achado pelo teste E2E, não pela verificação manual). Corrigido movendo o feedback pra fora do bloco condicional.
+2. `GET /api/extrato`/filtro por `turmaId` não fixava `destinoTipo: "turma"` explicitamente (achado na Fase 5 do `CONTINUACAO.md`, não desta feature, mas relevante porque o mesmo padrão existia nas novas rotas de investimento — já nasceram corrigidas).
+
+**⚠️ Ação pendente antes de publicar**: o conteúdo de `src/components/dashboard/instrucoes-investimento.tsx` (explicação das 6 opções + as 6 virtudes com referências bíblicas parafraseadas) é conteúdo formativo que representa a voz institucional do colégio — precisa ser revisado e aprovado pela coordenação pedagógica/religiosa antes de ir pra produção. Isso está documentado também num comentário no topo do próprio arquivo. Nada tecnicamente pendente nele, só a revisão de conteúdo/tom.
+
+**Pressuposto assumido**: "investir na Casa" e "investir na turma" sempre miram a PRÓPRIA Casa/turma do aluno (resolvida no servidor a partir de `usuarios.casa_id` e da matrícula do ano vigente) — o aluno nunca escolhe livremente qual Casa/turma receber, o que evitaria um aluno inflar o placar de um grupo que não é o dele. Isso não foi dito explicitamente no `INVESTIMENTOS.md`, mas é a leitura mais segura e consistente com RN-08.
+
 ## Status (Continuação — Fase 6, revisão final)
 
 Todas as 6 fases do `CONTINUACAO.md` foram concluídas. Suíte completa limpa: `npm run typecheck`, `npm run lint`, `npm run test` (30), `npm run test:integration` (25), `npm run test:e2e` (12) — todos passando, verificado contra um Postgres 17 local de verdade (não simulado). Ver as seções "Continuação — Fase N" abaixo para o detalhe de cada uma.
@@ -36,7 +50,7 @@ npm run dev               # servidor de desenvolvimento
 npm run build              # build de produção
 npm run typecheck          # tsc --noEmit
 npm run lint                # eslint
-npm run test                 # vitest run (regras de negócio - RN-01..RN-14, sem banco)
+npm run test                 # vitest run (regras de negócio - RN-01..RN-22, sem banco)
 npm run test:integration      # vitest run contra Postgres real - ver tests/integration/README.md
 npm run test:e2e              # Playwright E2E - ver tests/e2e/README.md
 npm run icons:generate         # regenera public/icons/icon-{192,512}.png a partir do CoinIcon
@@ -63,6 +77,7 @@ src/
       perfil/
       pec/                      # painel do PEC (secao 2)
       admin/                     # paineis exclusivos de admin
+      investir/                  # investimentos do aluno (INVESTIMENTOS.md)
     api/                          # rotas de API (uma pasta por recurso)
   components/
     ui/                # primitives (button, card, input, badge...)
@@ -73,19 +88,20 @@ src/
     services/               # logica de negocio (ver abaixo)
     validation/              # schemas Zod compartilhados
   middleware.ts               # protecao de PAGINAS por papel (camada de UX; a validacao real é sempre no backend)
-tests/unit/regras.test.ts        # 30 testes cobrindo RN-01..RN-14
+tests/unit/regras.test.ts        # 40 testes cobrindo RN-01..RN-21 (regras puras)
 ```
 
 ## Arquitetura da camada de serviços (`src/lib/services`)
 
 Separação deliberada entre **regras puras** e **I/O**, para permitir testar a lógica de negócio sem precisar de um banco de dados real:
 
-- **`regras.ts`** — funções puras (entrada → saída, sem `await`, sem Prisma). Cobre os cálculos de RN-01, RN-03, RN-04, RN-05, RN-06, RN-09, RN-12, RN-13, RN-14 e a ordenação de rankings. É o arquivo com testes unitários (`tests/unit/regras.test.ts`, 30 testes, todos passando).
-- **`pointsService.ts`** — orquestra `regras.ts` + Prisma dentro de `prisma.$transaction` (RN-02, atomicidade). Contém `distribuirPontos` (individual em lote / turma toda), `pontuarProfessor` (RN-12/13), `ajustarSaldoTurma` (RN-05).
-- **`redemptionService.ts`** — `solicitarResgate` e `resolverResgate` (RN-04, RN-06, controle de estoque).
+- **`regras.ts`** — funções puras (entrada → saída, sem `await`, sem Prisma). Cobre os cálculos de RN-03, RN-04, RN-05, RN-06, RN-09, RN-12, RN-13, RN-14, RN-16..RN-20 e a ordenação de rankings. É o arquivo com testes unitários (`tests/unit/regras.test.ts`, 40 testes, todos passando).
+- **`pointsService.ts`** — orquestra `regras.ts` + Prisma dentro de `prisma.$transaction` (RN-02, atomicidade). Contém `distribuirPontos` (individual em lote / turma toda — só credita o saldo pessoal, ver RN-01 substituída), `pontuarProfessor` (RN-12/13), `ajustarSaldoTurma` (RN-05).
+- **`redemptionService.ts`** — `solicitarResgate` e `resolverResgate` (RN-04, RN-06, RN-22, controle de estoque).
 - **`rankingService.ts`** — monta os rankings de Salas/Casas e o contexto pessoal do dashboard.
 - **`importService.ts`** — parse (`xlsx`), validação linha a linha e confirmação da importação (seção 4.6).
 - **`anoLetivoService.ts`** — encerramento do ano letivo (seção 5).
+- **`investmentService.ts`** — `investir`/`resgatarInvestimento`/`listarInvestimentos`/`resumoInvestimentos` (RN-15..RN-21, ver INVESTIMENTOS.md).
 
 ## Regras de negócio (RN-01 a RN-22)
 
