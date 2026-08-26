@@ -87,19 +87,19 @@ Separação deliberada entre **regras puras** e **I/O**, para permitir testar a 
 - **`importService.ts`** — parse (`xlsx`), validação linha a linha e confirmação da importação (seção 4.6).
 - **`anoLetivoService.ts`** — encerramento do ano letivo (seção 5).
 
-## Regras de negócio (RN-01 a RN-14)
+## Regras de negócio (RN-01 a RN-22)
 
 Todas implementadas e comentadas no código-fonte, no arquivo/função correspondente. Resumo de onde encontrar cada uma:
 
 | Regra | Onde |
 |---|---|
-| RN-01 Propagação tripla | `regras.ts::calcularPropagacaoCredito`, aplicado em `pointsService.ts::distribuirPontos` |
-| RN-02 Atomicidade | `prisma.$transaction` em `pointsService.ts` e `redemptionService.ts` |
+| RN-01 Propagação tripla | **SUBSTITUÍDA** pelo sistema de investimentos (ver "Continuação — Investimentos" abaixo e RN-15..RN-21). Creditar um aluno agora só mexe no saldo pessoal dele; `calcularPropagacaoCredito` em `regras.ts` só retorna o delta do aluno. |
+| RN-02 Atomicidade | `prisma.$transaction` em `pointsService.ts`, `redemptionService.ts` e `investmentService.ts` |
 | RN-03 Motivo obrigatório | `regras.ts::validarMotivo`, também `NOT NULL` implícito no schema (`motivo: string`) |
 | RN-04 Resgate individual isolado | `regras.ts::calcularDebitoResgateIndividual`, `redemptionService.ts::resolverResgate` |
 | RN-05 Ajustes de PEC | `regras.ts::calcularAjusteTurma`, `pointsService.ts::ajustarSaldoTurma` |
-| RN-06 Saldo nunca negativo | `regras.ts::validarDebitoNaoNegativo`, checado na aprovação do resgate e no ajuste de débito |
-| RN-07 Auditoria imutável | Nenhuma rota de DELETE/UPDATE em `transacoes`/`resgates` — só criação e (para resgates) transição de status |
+| RN-06 Saldo nunca negativo | `regras.ts::validarDebitoNaoNegativo`, checado na aprovação do resgate, no ajuste de débito e ao investir (RN-15) |
+| RN-07 Auditoria imutável | Nenhuma rota de DELETE/UPDATE em `transacoes`/`resgates`/`investimentos` — só criação e transição de status |
 | RN-08 Privacidade do aluno | `src/lib/auth/server.ts::garantirAcessoProprioOuAdmin` |
 | RN-09 Escopo do PEC | `regras.ts::validarEscopoPec`, checado em `pointsService.ts::ehPecDaTurma` antes de ajustes/aprovações |
 | RN-10 Domínio de e-mail | `src/lib/auth/options.ts::signIn` callback |
@@ -107,6 +107,14 @@ Todas implementadas e comentadas no código-fonte, no arquivo/função correspon
 | RN-12 Só admin pontua professor | `regras.ts::validarQuemPontuaProfessor` |
 | RN-13 Professor fora dos rankings | `regras.ts::excluirProfessoresDoRanking`; `rankingService.ts` só lê `turma_periodos`/`casa_periodos`, que nunca recebem incremento de professor |
 | RN-14 Limite de 10 por lote | `regras.ts::validarLimiteValorPorLote` |
+| RN-15 Só o aluno decide investir | `investmentService.ts::investir` (ou admin, via `garantirAcessoProprioOuAdmin`); exige saldo suficiente (RN-06) |
+| RN-16 Investimento em Casa/turma é irreversível | `regras.ts::ehInvestimentoIrreversivel`/`calcularDeltaInvestimentoColetivo`, `investmentService.ts::investirColetivo` — vira `Transacao` direto, sem `Investimento` |
+| RN-17 Investimentos financeiros são reversíveis | `regras.ts::ehInvestimentoReversivel`, `investmentService.ts::investirReversivel`/`resgatarInvestimento` |
+| RN-18 Taxa congelada no momento do investimento | `src/lib/config/taxasInvestimento.ts` (único lugar com os números), `regras.ts::calcularValorComJuros` (juros compostos diários) |
+| RN-19 Resgate devolve principal + juros | `investmentService.ts::resgatarInvestimento` — principal não altera acumulado, juros somam nos dois |
+| RN-20 Resgate único, por inteiro | `regras.ts::validarPodeResgatar` (bloqueia resgatar duas vezes ou tipo irreversível) |
+| RN-21 Toda operação de investimento gera Transacao | `investmentService.ts` (debita aluno sempre; investir em Casa/turma também credita o coletivo; resgatar credita o aluno) |
+| RN-22 Só o PEC inicia gasto do saldo da turma | `src/app/api/redemptions/route.ts::POST` — admin não solicita mais resgate de escopo turma (só aprova, que é camada separada) |
 
 ## Pressupostos assumidos (seção 12 da especificação)
 

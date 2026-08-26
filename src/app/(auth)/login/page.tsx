@@ -3,7 +3,6 @@
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { CoinIcon } from "@/components/ui/coin-icon";
 import { Button } from "@/components/ui/button";
 import { AUTH_ERROR_CODES } from "@/lib/auth/options";
 import Image from "next/image";

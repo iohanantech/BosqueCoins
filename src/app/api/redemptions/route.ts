@@ -70,14 +70,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(resgate, { status: 201 });
     }
 
-    // escopo turma: so PEC da turma ou admin (secao 4.2.1 do texto - "PEC (ou admin) solicita")
-    if (session.user.papel === "professor") {
-      const anoLetivo = await getAnoLetivoAtivo();
-      const pec = parsed.data.turmaId ? await ehPecDaTurma(session.user.id, parsed.data.turmaId, anoLetivo.id) : false;
-      if (!pec) throw new ApiError(403, "Somente o PEC da turma pode solicitar resgates de turma.");
-    } else if (session.user.papel === "aluno") {
-      throw new ApiError(403, "Alunos nao podem solicitar resgates de turma.");
+    // RN-22 — escopo turma: SO o PEC da turma pode INICIAR o gasto do saldo
+    // coletivo (adquirir um item do catalogo). Isto e diferente de aprovar
+    // (resolverResgate continua aceitando admin OU o PEC - e uma camada de
+    // auditoria/oversight separada, nao um atalho de compra). O admin
+    // NAO tem mais esse atalho de solicitar em nome de qualquer turma.
+    if (session.user.papel !== "professor") {
+      throw new ApiError(403, "Somente o PEC da turma pode solicitar resgates de turma.");
     }
+    const anoLetivo = await getAnoLetivoAtivo();
+    const pec = parsed.data.turmaId ? await ehPecDaTurma(session.user.id, parsed.data.turmaId, anoLetivo.id) : false;
+    if (!pec) throw new ApiError(403, "Somente o PEC da turma pode solicitar resgates de turma.");
 
     const resgate = await solicitarResgate({ ...parsed.data, solicitanteId: session.user.id });
     return NextResponse.json(resgate, { status: 201 });

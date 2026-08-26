@@ -53,6 +53,16 @@ export const encerrarAnoSchema = z.object({
   dataFimProximoAno: z.coerce.date(),
 });
 
+// Investir em Casa/turma sempre mira a PROPRIA Casa/turma do aluno (nunca uma
+// escolhida livremente) - resolvida no service a partir de usuarios.casa_id e
+// da matricula do ano vigente, nao recebida como parametro (evita um aluno
+// inflar o placar de uma turma/Casa que nao e a dele).
+export const investirSchema = z.object({
+  tipo: z.enum(["casa", "turma", "cdb", "poupanca", "fundo_imobiliario", "tesouro_direto"]),
+  valor: z.number().int().positive("O valor deve ser um numero inteiro positivo."),
+  alunoId: z.string().uuid().optional(), // so quando admin investe em nome do aluno (RN-15)
+});
+
 export const confirmarImportacaoSchema = z.object({
   anoLetivoId: z.string().uuid(),
   duplicados: z.enum(["atualizar", "pular"]),
