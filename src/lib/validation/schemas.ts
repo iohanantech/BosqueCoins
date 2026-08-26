@@ -1,0 +1,60 @@
+import { z } from "zod";
+
+// Schemas Zod compartilhados entre frontend (formularios) e backend (API routes).
+
+export const distribuirPontosSchema = z.object({
+  turmaId: z.string().uuid(),
+  alunoIds: z.array(z.string().uuid()).min(1, "Selecione ao menos um aluno."),
+  valor: z.number().int().positive("O valor deve ser um numero inteiro positivo."),
+  motivo: z.string().trim().min(1, "O motivo e obrigatorio."),
+  data: z.coerce.date().optional(),
+});
+
+export const pontuarProfessorSchema = z.object({
+  professorDestinoId: z.string().uuid(),
+  valor: z.number().int().positive(),
+  motivo: z.string().trim().min(1, "O motivo e obrigatorio."),
+});
+
+export const ajustarSaldoTurmaSchema = z.object({
+  turmaId: z.string().uuid(),
+  valor: z.number().int().positive(),
+  direcao: z.enum(["credito", "debito"]),
+  motivo: z.string().trim().min(1, "O motivo e obrigatorio."),
+});
+
+export const criarItemCatalogoSchema = z.object({
+  nome: z.string().trim().min(1),
+  descricao: z.string().trim().min(1),
+  custo: z.number().int().positive(),
+  imagemUrl: z.string().url().optional().nullable(),
+  icone: z.string().optional().nullable(),
+  categoria: z.string().trim().min(1),
+  escopo: z.enum(["turma", "individual", "ambos"]),
+  quantidadeDisponivel: z.number().int().positive().optional().nullable(),
+  ativo: z.boolean().optional(),
+});
+
+export const solicitarResgateSchema = z.object({
+  itemId: z.string().uuid(),
+  escopo: z.enum(["turma", "individual"]),
+  turmaId: z.string().uuid().optional(),
+  alunoId: z.string().uuid().optional(),
+});
+
+export const resolverResgateSchema = z.object({
+  decisao: z.enum(["aprovado", "recusado"]),
+  motivoRecusa: z.string().optional(),
+});
+
+export const encerrarAnoSchema = z.object({
+  nomeProximoAno: z.string().trim().min(1),
+  dataInicioProximoAno: z.coerce.date(),
+  dataFimProximoAno: z.coerce.date(),
+});
+
+export const confirmarImportacaoSchema = z.object({
+  anoLetivoId: z.string().uuid(),
+  duplicados: z.enum(["atualizar", "pular"]),
+  turmaCasaInexistente: z.enum(["criar", "rejeitar"]),
+});

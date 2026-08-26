@@ -1,0 +1,265 @@
+// BosqueCoins — schema de referência (ESPECIFICACAO.md, seção 8)
+//
+// Principio central: o saldo do ALUNO (e do PROFESSOR) é vitalicio e vive
+// direto em `Usuario`. Os saldos de TURMA e CASA sao escopados por ano
+// letivo e vivem em tabelas de periodo (`TurmaPeriodo`, `CasaPeriodo`),
+// nunca sobrescritas, para nunca apagar historico (secao 5).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Papel {
+  admin
+  professor
+  aluno
+}
+
+enum TipoTransacao {
+  credito
+  debito
+  ajuste
+}
+
+enum DestinoTipo {
+  aluno
+  turma
+  professor
+}
+
+enum EscopoItem {
+  turma
+  individual
+  ambos
+}
+
+enum EscopoResgate {
+  turma
+  individual
+}
+
+enum StatusResgate {
+  pendente
+  aprovado
+  recusado
+}
+
+model AnoLetivo {
+  id         String   @id @default(uuid())
+  nome       String   @unique // ex.: "2026"
+  dataInicio DateTime @map("data_inicio")
+  dataFim    DateTime @map("data_fim")
+  ativo      Boolean  @default(false)
+  encerrado  Boolean  @default(false)
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  matriculas        Matricula[]
+  pecTurmas         ProfessorPecTurma[]
+  turmaPeriodos     TurmaPeriodo[]
+  casaPeriodos      CasaPeriodo[]
+  transacoes        Transacao[]
+  resgates          Resgate[]
+
+  @@map("anos_letivos")
+}
+
+model Usuario {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String   @unique
+  googleId  String?  @unique @map("google_id")
+  papel     Papel
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  // Vinculo persistente de Casa - so para alunos, NAO escopado por ano (secao 5, item 6)
+  casaId String? @map("casa_id")
+  casa   Casa?   @relation(fields: [casaId], references: [id])
+
+  // Saldo VITALICIO - usado tanto por aluno quanto por professor (RN-01, RN-12).
+  // Nunca reseta na virada do ano letivo. Nao se aplica a admin.
+  saldoAtual     Int @default(0) @map("saldo_atual")
+  saldoAcumulado Int @default(0) @map("saldo_acumulado")
+
+  // Relacoes
+  matriculas          Matricula[]
+  pecTurmas           ProfessorPecTurma[]        @relation("ProfessorDasTurmas")
+  transacoesOrigem    Transacao[]                @relation("TransacaoOrigem")
+  resgatesSolicitados Resgate[]                  @relation("ResgateSolicitante")
+  resgatesAprovados   Resgate[]                  @relation("ResgateAprovador")
+
+  @@map("usuarios")
+}
+
+model Casa {
+  id               String  @id @default(uuid())
+  nome             String  @unique // Camapuã, Caratuva, Marumbi, Morro do Cal
+  corPrimariaHex   String  @map("cor_primaria_hex")
+  corSecundariaHex String  @map("cor_secundaria_hex")
+  ativo            Boolean @default(true)
+
+  alunos  Usuario[]
+  periodos CasaPeriodo[]
+
+  @@map("casas")
+}
+
+model Turma {
+  id     String  @id @default(uuid())
+  nome   String  @unique
+  serie  String
+  ativo  Boolean @default(true)
+
+  matriculas Matricula[]
+  pecs       ProfessorPecTurma[]
+  periodos   TurmaPeriodo[]
+
+  @@map("turmas")
+}
+
+// Vinculo aluno-turma, escopado por ano letivo (permite trocar de turma entre anos)
+model Matricula {
+  id          String @id @default(uuid())
+  alunoId     String @map("aluno_id")
+  turmaId     String @map("turma_id")
+  anoLetivoId String @map("ano_letivo_id")
+
+  aluno     Usuario   @relation(fields: [alunoId], references: [id])
+  turma     Turma     @relation(fields: [turmaId], references: [id])
+  anoLetivo AnoLetivo @relation(fields: [anoLetivoId], references: [id])
+
+  @@unique([alunoId, anoLetivoId]) // um aluno tem so uma turma por ano
+  @@index([turmaId, anoLetivoId])
+  @@map("matriculas")
+}
+
+// Vinculo N:N que confere a permissao de PEC numa turma, tambem escopado por ano
+model ProfessorPecTurma {
+  id          String @id @default(uuid())
+  professorId String @map("professor_id")
+  turmaId     String @map("turma_id")
+  anoLetivoId String @map("ano_letivo_id")
+
+  professor Usuario   @relation("ProfessorDasTurmas", fields: [professorId], references: [id])
+  turma     Turma     @relation(fields: [turmaId], references: [id])
+  anoLetivo AnoLetivo @relation(fields: [anoLetivoId], references: [id])
+
+  @@unique([professorId, turmaId, anoLetivoId])
+  @@index([turmaId, anoLetivoId])
+  @@map("professor_pec_turmas")
+}
+
+// Saldo da TURMA dentro de um ano letivo especifico - zera todo ano (secao 5)
+model TurmaPeriodo {
+  id             String @id @default(uuid())
+  turmaId        String @map("turma_id")
+  anoLetivoId    String @map("ano_letivo_id")
+  saldoAtual     Int    @default(0) @map("saldo_atual")
+  saldoAcumulado Int    @default(0) @map("saldo_acumulado")
+
+  turma     Turma     @relation(fields: [turmaId], references: [id])
+  anoLetivo AnoLetivo @relation(fields: [anoLetivoId], references: [id])
+
+  @@unique([turmaId, anoLetivoId])
+  @@map("turma_periodos")
+}
+
+// Saldo da CASA dentro de um ano letivo especifico - zera todo ano (secao 5)
+model CasaPeriodo {
+  id             String @id @default(uuid())
+  casaId         String @map("casa_id")
+  anoLetivoId    String @map("ano_letivo_id")
+  saldoAtual     Int    @default(0) @map("saldo_atual")
+  saldoAcumulado Int    @default(0) @map("saldo_acumulado")
+
+  casa      Casa      @relation(fields: [casaId], references: [id])
+  anoLetivo AnoLetivo @relation(fields: [anoLetivoId], references: [id])
+
+  @@unique([casaId, anoLetivoId])
+  @@map("casa_periodos")
+}
+
+// Log imutavel de todo credito/debito/ajuste (RN-07)
+model Transacao {
+  id          String         @id @default(uuid())
+  anoLetivoId String         @map("ano_letivo_id")
+  tipo        TipoTransacao
+  valor       Int
+  motivo      String
+
+  origemUsuarioId String  @map("origem_usuario_id")
+  destinoTipo     DestinoTipo @map("destino_tipo")
+  destinoId       String      @map("destino_id") // id de usuario (aluno/professor) ou turma, conforme destinoTipo
+
+  // Agrupa transacoes geradas por um mesmo lancamento em lote (secao 4.2).
+  // Sempre preenchido para creditos de aluno (mesmo lote de 1 pessoa so).
+  loteId String? @map("lote_id")
+
+  transacaoEstornadaId String? @unique @map("transacao_estornada_id")
+
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  anoLetivo      AnoLetivo  @relation(fields: [anoLetivoId], references: [id])
+  origemUsuario  Usuario    @relation("TransacaoOrigem", fields: [origemUsuarioId], references: [id])
+  transacaoEstornada Transacao? @relation("Estorno", fields: [transacaoEstornadaId], references: [id])
+  estornoDe      Transacao? @relation("Estorno")
+
+  @@index([anoLetivoId])
+  @@index([loteId])
+  @@index([destinoTipo, destinoId])
+  @@index([origemUsuarioId])
+  @@map("transacoes")
+}
+
+// Catalogo de recompensas - NAO escopado por ano letivo (vale para todos os anos)
+model ItemCatalogo {
+  id                    String     @id @default(uuid())
+  nome                  String
+  descricao             String
+  custo                 Int
+  imagemUrl             String?    @map("imagem_url") // URL externa colada pelo admin - sem upload (secao 7)
+  icone                 String?    // alternativa gratuita: nome de icone/emoji
+  categoria             String
+  escopo                EscopoItem
+  quantidadeDisponivel  Int?       @map("quantidade_disponivel") // null = ilimitado
+  ativo                 Boolean    @default(true)
+
+  resgates Resgate[]
+
+  @@map("itens_catalogo")
+}
+
+model Resgate {
+  id            String        @id @default(uuid())
+  anoLetivoId   String        @map("ano_letivo_id")
+  itemId        String        @map("item_id")
+  escopoUsado   EscopoResgate @map("escopo_usado")
+
+  turmaId String? @map("turma_id") // exatamente um de turmaId/alunoId preenchido
+  alunoId String? @map("aluno_id")
+
+  solicitanteId  String @map("solicitante_id")
+  valorDebitado  Int    @map("valor_debitado")
+
+  status       StatusResgate @default(pendente)
+  aprovadorId  String?       @map("aprovador_id")
+  motivoRecusa String?       @map("motivo_recusa")
+
+  criadoEm   DateTime  @default(now()) @map("criado_em")
+  resolvidoEm DateTime? @map("resolvido_em")
+
+  anoLetivo   AnoLetivo    @relation(fields: [anoLetivoId], references: [id])
+  item        ItemCatalogo @relation(fields: [itemId], references: [id])
+  solicitante Usuario      @relation("ResgateSolicitante", fields: [solicitanteId], references: [id])
+  aprovador   Usuario?     @relation("ResgateAprovador", fields: [aprovadorId], references: [id])
+
+  @@index([anoLetivoId])
+  @@index([status])
+  @@map("resgates")
+}
