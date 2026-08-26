@@ -67,7 +67,8 @@ Acesse `http://localhost:3000` — você será redirecionado para `/login`.
 ```bash
 npm run typecheck
 npm run lint
-npm run test        # 30 testes cobrindo as regras de negocio RN-01..RN-14
+npm run test        # 30 testes cobrindo as regras de negocio RN-01..RN-14 (sem banco)
+npm run test:integration  # testes contra Postgres real - ver tests/integration/README.md
 ```
 
 ## 4. Deploy gratuito (produção)

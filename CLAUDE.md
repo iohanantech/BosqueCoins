@@ -20,7 +20,8 @@ npm run dev               # servidor de desenvolvimento
 npm run build              # build de produção
 npm run typecheck          # tsc --noEmit
 npm run lint                # eslint
-npm run test                 # vitest run (regras de negócio - RN-01..RN-14)
+npm run test                 # vitest run (regras de negócio - RN-01..RN-14, sem banco)
+npm run test:integration      # vitest run contra Postgres real - ver tests/integration/README.md
 npm run prisma:migrate        # cria/aplica migration em dev
 npm run prisma:deploy          # aplica migrations em produção
 npm run prisma:seed             # popula o banco com dados de desenvolvimento
@@ -110,6 +111,23 @@ Divergências entre o código escrito à mão e os tipos reais gerados pelo Pris
 - `rankingService.ts` tinha um `include: { _count: { select: {} } }` inválido (sobra de uma versão anterior) — removido; a contagem de alunos já é feita via `prisma.matricula.count` separado.
 - `importService.ts`: `workbook.Sheets[primeiraAba]` podia ser `undefined` para o TS — non-null assertion após o guard de planilha vazia já feito acima.
 - `.eslintrc.json` não carregava o plugin `@typescript-eslint` fora do fluxo padrão do Next (rule override `@typescript-eslint/no-unused-vars` falhava com "rule not found" via `npm run lint`) — adicionado `"plugins": ["@typescript-eslint"]` explicitamente.
+
+## Continuação — Fase 3 (testes de integração)
+
+`tests/integration/` (config separada em `vitest.integration.config.mts`, script `npm run test:integration`) cobre contra um Postgres real (local, `bosquecoins_test` - nunca o de dev) o que a suíte de `regras.ts` não alcança por não tocar banco:
+
+- **RN-01 + RN-02**: `distribuirPontos` credita aluno/turma/Casa atomicamente, uma transação por aluno com `loteId` compartilhado.
+- **RN-04 + RN-06**: resgate individual só debita o saldo atual do aluno (não mexe em acumulado/turma/Casa); aprovação que deixaria saldo negativo falha sem alterar nada (testado para resgate individual e de turma).
+- **RN-08**: via API real (`POST /api/redemptions` com sessão mockada) — aluno não pode solicitar resgate em nome de outro aluno.
+- **RN-09**: via API real (`POST /api/points/turma`) — professor comum ou PEC de outra turma recebe 403 num ajuste manual; PEC da turma certa consegue.
+- **RN-12 + RN-13**: só admin credita professor; crédito de professor não propaga para turma/Casa nem entra nos rankings.
+- **RN-05, RN-14**: ajuste de PEC isolado na turma; limite de 10/lote para professor comum, sem limite para PEC/admin, e o mesmo professor volta ao limite numa turma que não administra.
+- **Encerramento de ano letivo**: novo ano fica ativo e zerado, o anterior vira `encerrado` e continua consultável com os valores intactos, saldo pessoal não muda. Também documenta que `Matricula` é escopada por ano (RN-11) — não é herdada automaticamente, precisa de reimportação (comportamento correto, não um bug).
+- **Importação de planilha**: todos os `StatusLinha` (`email_malformado`, `dominio_invalido`, `turma_inexistente`, `casa_inexistente`, `email_duplicado_planilha`, `email_ja_existe_banco`) classificados corretamente; `confirmarImportacao` respeita `criar`/`rejeitar` e `atualizar`/`pular`.
+
+RN-03, RN-06 (validação pura), RN-07 (ausência de rotas DELETE/UPDATE — verificável por inspeção, não por teste), RN-10 e RN-13 (exclusão de ranking) já têm cobertura suficiente em `regras.ts` ou são estruturais; não duplicados aqui.
+
+`tests/integration/setup.ts` recusa rodar se `DATABASE_URL` não contiver `"test"` (proteção contra `TRUNCATE` no banco errado) e faz `TRUNCATE ... RESTART IDENTITY CASCADE` antes de cada teste via `resetDb()`. Ver `tests/integration/README.md` para setup local.
 
 ## Continuação — Fase 2 (login de desenvolvimento)
 
