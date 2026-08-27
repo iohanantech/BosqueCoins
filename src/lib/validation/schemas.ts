@@ -47,11 +47,30 @@ export const resolverResgateSchema = z.object({
   motivoRecusa: z.string().optional(),
 });
 
-export const encerrarAnoSchema = z.object({
-  nomeProximoAno: z.string().trim().min(1),
-  dataInicioProximoAno: z.coerce.date(),
-  dataFimProximoAno: z.coerce.date(),
-});
+export const encerrarAnoSchema = z
+  .object({
+    nomeProximoAno: z.string().trim().min(1),
+    dataInicioProximoAno: z.coerce.date(),
+    dataFimProximoAno: z.coerce.date(),
+  })
+  .refine((d) => d.dataFimProximoAno > d.dataInicioProximoAno, {
+    message: "A data de fim precisa ser depois da data de inicio.",
+    path: ["dataFimProximoAno"],
+  });
+
+// Abertura do PRIMEIRO ano letivo (so quando nao existe nenhum) - ver
+// anoLetivoService.ts::abrirPrimeiroAnoLetivo. Depois disso, a virada de ano
+// e sempre por encerrarAnoSchema acima, que fecha o vigente e abre o proximo.
+export const criarAnoLetivoSchema = z
+  .object({
+    nome: z.string().trim().min(1, "O nome e obrigatorio."),
+    dataInicio: z.coerce.date(),
+    dataFim: z.coerce.date(),
+  })
+  .refine((d) => d.dataFim > d.dataInicio, {
+    message: "A data de fim precisa ser depois da data de inicio.",
+    path: ["dataFim"],
+  });
 
 // Investir em Casa/turma sempre mira a PROPRIA Casa/turma do aluno (nunca uma
 // escolhida livremente) - resolvida no service a partir de usuarios.casa_id e

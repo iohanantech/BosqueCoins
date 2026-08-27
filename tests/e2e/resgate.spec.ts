@@ -1,8 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { loginComo, USUARIOS } from "./helpers";
 
-// O icone da moeda (CoinIcon) e um SVG com um "B" como texto, entao o
-// textContent do saldo vem como "B123" - extrai so os digitos.
+// O card de saldo tem um icone (CoinIcon) ao lado do numero - extrai so os digitos.
 function saldoNumerico(texto: string | null) {
   return Number(texto?.match(/\d+/)?.[0] ?? NaN);
 }

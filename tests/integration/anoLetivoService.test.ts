@@ -1,9 +1,86 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { NextRequest } from "next/server";
 import { prisma } from "./setup";
 import { criarFixtureBase } from "./fixtures";
 import { distribuirPontos } from "@/lib/services/pointsService";
 import { investir } from "@/lib/services/investmentService";
-import { encerrarAnoLetivo } from "@/lib/services/anoLetivoService";
+import { abrirPrimeiroAnoLetivo, encerrarAnoLetivo } from "@/lib/services/anoLetivoService";
+
+let sessao: { user: { id: string; email?: string; papel: "admin" | "professor" | "aluno" } } | null = null;
+vi.mock("next-auth", () => ({ getServerSession: () => Promise.resolve(sessao) }));
+
+describe("P1 - abrir o PRIMEIRO ano letivo (ambiente novo)", () => {
+  it("cria o ano ativo quando o banco nao tem nenhum ano letivo", async () => {
+    const ano = await abrirPrimeiroAnoLetivo({
+      nome: "2026",
+      dataInicio: new Date("2026-02-01"),
+      dataFim: new Date("2026-12-19"),
+    });
+    expect(ano.ativo).toBe(true);
+    expect(await prisma.anoLetivo.count()).toBe(1);
+  });
+
+  it("recusa (409) se ja existe algum ano letivo - a partir dai a virada e por encerrar", async () => {
+    await criarFixtureBase(); // ja cria um ano ativo
+    await expect(
+      abrirPrimeiroAnoLetivo({ nome: "2027", dataInicio: new Date("2027-02-01"), dataFim: new Date("2027-12-19") })
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("via API: POST /api/anos-letivos e admin-only; GET informa total", async () => {
+    // Banco limpo (resetDb do setup) + 1 admin criado na mao.
+    const admin = await prisma.usuario.create({
+      data: { nome: "Admin", email: "admin@bosquemananciais.org.br", papel: "admin" },
+    });
+    const aluno = await prisma.usuario.create({
+      data: { nome: "Aluno", email: "a@bosquemananciais.org.br", papel: "aluno" },
+    });
+
+    const { GET, POST } = await import("@/app/api/anos-letivos/route");
+
+    sessao = { user: { id: aluno.id, papel: "aluno" } };
+    const resNeg = await POST(
+      new NextRequest("http://x/api/anos-letivos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: "2026", dataInicio: "2026-02-01", dataFim: "2026-12-19" }),
+      })
+    );
+    expect(resNeg.status).toBe(403);
+
+    sessao = { user: { id: admin.id, email: admin.email, papel: "admin" } };
+    const resOk = await POST(
+      new NextRequest("http://x/api/anos-letivos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: "2026", dataInicio: "2026-02-01", dataFim: "2026-12-19" }),
+      })
+    );
+    expect(resOk.status).toBe(201);
+
+    const resGet = await GET();
+    const info = await resGet.json();
+    expect(info.total).toBe(1);
+    expect(info.temAtivo).toBe(true);
+  });
+
+  it("P8: a rota recusa (400) datas invertidas (fim antes do inicio)", async () => {
+    const admin = await prisma.usuario.create({
+      data: { nome: "Admin", email: "admin@bosquemananciais.org.br", papel: "admin" },
+    });
+    sessao = { user: { id: admin.id, email: admin.email, papel: "admin" } };
+    const { POST } = await import("@/app/api/anos-letivos/route");
+    const res = await POST(
+      new NextRequest("http://x/api/anos-letivos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: "2026", dataInicio: "2026-12-31", dataFim: "2026-01-01" }),
+      })
+    );
+    expect(res.status).toBe(400);
+    expect(await prisma.anoLetivo.count()).toBe(0);
+  });
+});
 
 describe("Encerramento do ano letivo (secao 5)", () => {
   it("abre o novo ano zerado, mantem o anterior intacto, e nao mexe no saldo vitalicio", async () => {

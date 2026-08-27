@@ -2,6 +2,24 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
+## Continuação — Fase 15 (auditoria completa: abrir o 1º ano letivo + correções)
+
+Auditoria de todo o sistema em 2026-08-27 (relatório completo publicado como artifact). Corrigido nesta sessão o achado **crítico** e dois **baixos** de origem relacionada:
+
+**P1 (crítico) — um banco novo era um beco sem saída.** A única rota que criava `AnoLetivo` era `POST /api/anos-letivos/encerrar`, que exige um ano ativo pra rodar — e ~10 rotas dependem de `getAnoLetivoAtivo` (dashboard, cadastro de aluno, extrato, turmas…), todas 500/404 sem ano. A única saída era `prisma:seed` (25 alunos fictícios). Agora:
+- `anoLetivoService.ts::abrirPrimeiroAnoLetivo` — cria o ano ativo, **só quando `anoLetivo.count() === 0`** (409 caso contrário; a partir do 2º ano a virada é sempre por `encerrarAnoLetivo`).
+- `GET/POST /api/anos-letivos` (novo arquivo `route.ts`, ao lado de `/encerrar`). GET é para qualquer sessão e devolve `{ total, temAtivo, anos }`; POST é admin-only.
+- `/admin/ano-letivo` agora tem duas caras: sem nenhum ano → formulário "Abrir o primeiro ano letivo"; com ano → o fluxo de encerrar de sempre. Detecta via `GET /api/anos-letivos`.
+- Dashboard: quando `/api/dashboard/rankings` volta 404 (sem ano), mostra um card "Nenhum ano letivo aberto" com CTA pro admin, em vez de "Carregando rankings…" pra sempre.
+
+**P8 (baixo) — datas invertidas aceitas.** `encerrarAnoSchema` e o novo `criarAnoLetivoSchema` ganharam `.refine()` exigindo `dataFim > dataInicio` (400 antes de gravar).
+
+**Bug pego pela suíte durante a auditoria — `diasDecorridos` podia ser -1.** Em `investmentService.ts`, o cálculo de dias desde o investimento (`Date.now() - dataInvestimento`) dava -1 por milissegundos de defasagem entre o relógio do app e o `now()` do Postgres num investimento recém-criado — fazendo a carência RN-28 "faltar 1 dia" até pra poupança (carência 0) e os juros ficarem negativos. Extraído `diasAplicado()` que trava em 0, usado nos 3 pontos (resgatar, listar, resumo).
+
+**E2E revalidado.** A suíte Playwright não rodava desde a Fase 4; contra um `bosquecoins_e2e` recriado do zero, `investir.spec.ts` estava quebrado (a Fase 14 clicava em "Resgatar" logo após investir em CDB, botão que a carência de 30 dias removeu; e o helper `lerSaldo` lia `NaN` durante o "…" de carregamento). Corrigido + teste novo cobrindo o "Resgate em 30d". **15/15 E2E, 50 unit, 103 integração, `typecheck`/`lint` limpos.**
+
+Ainda em aberto do relatório (não corrigidos): xlsx com CVEs sem patch no npm (P3), papel não validado em `/api/admin/pec-turmas` (P4), campo `data` do cliente aceito em `distribuirPontos` (P5), busca de alunos enumerável (P6), sem rate limiting (P7), N+1 no ranking (P9).
+
 ## Continuação — Fase 14 (carência de resgate por tipo de investimento — RN-28)
 
 Cada investimento reversível agora tem um prazo mínimo de aplicação antes de poder ser resgatado: **poupança 0** (a qualquer hora), **Fundo Imobiliário 7 dias** (1x/semana), **Tesouro Direto 15 dias**, **CDB 30 dias** (1x/mês). Números em `CARENCIA_RESGATE_DIAS` (`taxasInvestimento.ts`), ao lado de `TAXAS_MENSAIS`. **Não** é congelada no momento do investimento (diferente da taxa, RN-18) — é regra do jogo, mudar o config vale pra todos os ativos; documentado no próprio config.

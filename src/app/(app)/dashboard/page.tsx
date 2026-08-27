@@ -53,6 +53,7 @@ export default function DashboardPage() {
   const [anoSelecionado, setAnoSelecionado] = useState<string>("");
   const [modoTurmas, setModoTurmas] = useState<"total" | "media">("total");
   const [carregando, setCarregando] = useState(true);
+  const [semAnoLetivo, setSemAnoLetivo] = useState(false);
 
   async function carregar(anoLetivoId?: string) {
     setCarregando(true);
@@ -64,6 +65,10 @@ export default function DashboardPage() {
       const json: RankingsResponse = await res.json();
       setDados(json);
       setAnoSelecionado(json.anoLetivo.id);
+      setSemAnoLetivo(false);
+    } else if (res.status === 404) {
+      // Ambiente recem-criado, ainda sem nenhum ano letivo (ver /admin/ano-letivo).
+      setSemAnoLetivo(true);
     }
     setCarregando(false);
   }
@@ -184,7 +189,24 @@ export default function DashboardPage() {
 
       {papel === "aluno" && <InstrucoesInvestimento />}
 
-      {carregando && !dados ? (
+      {semAnoLetivo ? (
+        <Card>
+          <p className="text-sm font-semibold">Nenhum ano letivo aberto</p>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            {papel === "admin"
+              ? "O sistema precisa de um ano letivo ativo para funcionar."
+              : "Aguarde a coordenação abrir o ano letivo."}
+          </p>
+          {papel === "admin" && (
+            <Link
+              href="/admin/ano-letivo"
+              className="mt-3 inline-block rounded-xl2 bg-gold px-3 py-2 text-xs font-semibold text-white"
+            >
+              Abrir ano letivo
+            </Link>
+          )}
+        </Card>
+      ) : carregando && !dados ? (
         <p className="py-10 text-center text-sm text-neutral-400">Carregando rankings…</p>
       ) : dados ? (
         <>

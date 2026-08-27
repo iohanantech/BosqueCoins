@@ -1,14 +1,19 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
 import { loginComo, USUARIOS } from "./helpers";
 
-// O icone da moeda (CoinIcon) e um SVG com "B" como texto, entao o
-// textContent do saldo vem como "B123" - extrai so os digitos.
 function saldoNumerico(texto: string | null) {
   return Number(texto?.match(/\d+/)?.[0] ?? NaN);
 }
 
+/**
+ * Le o saldo do card de investir. Espera o valor deixar de ser "…" (estado
+ * de carregamento) antes de ler - senao a primeira leitura vira NaN e
+ * qualquer `saldoInicial - N` depois tambem.
+ */
 async function lerSaldo(page: Page) {
-  return saldoNumerico(await page.getByTestId("saldo-investir").textContent());
+  const loc = page.getByTestId("saldo-investir");
+  await expect(loc).toHaveText(/\d/, { timeout: 15000 });
+  return saldoNumerico(await loc.textContent());
 }
 
 /**
@@ -77,8 +82,12 @@ test.describe("Investir (INVESTIMENTOS.md)", () => {
     await expect(page.getByText(/BosqueCoins investidos em CDB/)).toBeVisible();
     await expect(page.getByText("Seus investimentos ativos")).toBeVisible();
 
-    await expect(page.getByText("Resgate em 30d")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Resgatar", exact: true })).toHaveCount(0);
+    // A linha do CDB recem-investido mostra a contagem regressiva, nao o botao.
+    // (Outros testes deste arquivo podem deixar investimentos reversiveis
+    // ativos - por isso a asserção e escopada a linha do CDB.)
+    const linhaCdb = page.locator("li").filter({ hasText: "CDB" }).filter({ hasText: "agora vale" });
+    await expect(linhaCdb.getByText("Resgate em 30d")).toBeVisible();
+    await expect(linhaCdb.getByRole("button", { name: "Resgatar", exact: true })).toHaveCount(0);
   });
 
   test("aluno investe em Casa (irreversível) com confirmação, e o placar da Casa sobe", async ({ page, browser }) => {

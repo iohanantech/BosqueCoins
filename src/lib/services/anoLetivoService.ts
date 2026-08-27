@@ -1,9 +1,35 @@
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/auth/server";
 import type { z } from "zod";
-import type { encerrarAnoSchema } from "@/lib/validation/schemas";
+import type { encerrarAnoSchema, criarAnoLetivoSchema } from "@/lib/validation/schemas";
 
 type EncerrarAnoInput = z.infer<typeof encerrarAnoSchema>;
+type CriarAnoInput = z.infer<typeof criarAnoLetivoSchema>;
+
+/**
+ * Abre o PRIMEIRO ano letivo de um ambiente novo. Sem isto, um deploy limpo
+ * fica travado: `getAnoLetivoAtivo` lanca 500 em ~10 rotas (dashboard,
+ * cadastro de aluno, extrato...) e a unica outra forma de criar um ano
+ * (`encerrarAnoLetivo`) exige um ano ativo pra rodar - beco sem saida.
+ *
+ * So funciona quando NAO existe nenhum ano letivo. A partir do segundo ano,
+ * a virada e sempre por `encerrarAnoLetivo` (fecha o vigente, abre o proximo).
+ */
+export async function abrirPrimeiroAnoLetivo(input: CriarAnoInput) {
+  const jaExiste = await prisma.anoLetivo.count();
+  if (jaExiste > 0) {
+    throw new ApiError(409, "Ja existe ano letivo. Use 'Encerrar ano letivo' para abrir o proximo.");
+  }
+
+  return prisma.anoLetivo.create({
+    data: {
+      nome: input.nome,
+      dataInicio: input.dataInicio,
+      dataFim: input.dataFim,
+      ativo: true,
+    },
+  });
+}
 
 /**
  * Encerramento do ano letivo (secao 5): "zerar pontos" e "encerrar o ano

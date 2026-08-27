@@ -13,8 +13,19 @@ import {
 } from "@/lib/services/regras";
 import { TAXAS_MENSAIS, CARENCIA_RESGATE_DIAS, type TipoInvestimentoReversivel } from "@/lib/config/taxasInvestimento";
 
-const carenciaDe = (tipo: TipoInvestimento) => CARENCIA_RESGATE_DIAS[tipo as TipoInvestimentoReversivel] ?? 0;
 import { getAnoLetivoAtivo } from "@/lib/services/pointsService";
+
+const carenciaDe = (tipo: TipoInvestimento) => CARENCIA_RESGATE_DIAS[tipo as TipoInvestimentoReversivel] ?? 0;
+
+/**
+ * Dias corridos desde o investimento, NUNCA negativo. Um investimento recem
+ * criado pode dar -1 aqui por milissegundos de defasagem entre o relogio do
+ * app e o do Postgres (`now()`) - o que faria a carencia de resgate (RN-28)
+ * "faltar 1 dia" ate para a poupanca (carencia 0) e os juros ficarem
+ * negativos. Trava em 0.
+ */
+const diasAplicado = (dataInvestimento: Date) =>
+  Math.max(0, Math.floor((Date.now() - dataInvestimento.getTime()) / (1000 * 60 * 60 * 24)));
 
 type TipoDoacao = "dizimo" | "lar_idoso";
 
@@ -262,7 +273,7 @@ export async function resgatarInvestimento(input: ResgatarInvestimentoInput) {
   const podeResgatar = validarPodeResgatar(investimento.tipo, investimento.status);
   if (!podeResgatar.valido) throw new ApiError(400, podeResgatar.erro!);
 
-  const diasDecorridos = Math.floor((Date.now() - investimento.dataInvestimento.getTime()) / (1000 * 60 * 60 * 24));
+  const diasDecorridos = diasAplicado(investimento.dataInvestimento);
 
   // RN-28: carencia de resgate por tipo (poupanca 0, FII 7, Tesouro 15, CDB 30).
   const carenciaCheck = validarCarenciaResgate(diasDecorridos, carenciaDe(investimento.tipo));
@@ -325,7 +336,7 @@ export async function listarInvestimentos(alunoId: string) {
     if (inv.status !== "ativo") {
       return { ...inv, valorAtual: inv.valorResgatado ?? inv.valorPrincipal, carenciaDias, diasRestantesCarencia: 0 };
     }
-    const diasDecorridos = Math.floor((Date.now() - inv.dataInvestimento.getTime()) / (1000 * 60 * 60 * 24));
+    const diasDecorridos = diasAplicado(inv.dataInvestimento);
     return {
       ...inv,
       valorAtual: calcularValorComJuros(inv.valorPrincipal, inv.taxaMensal, diasDecorridos),
@@ -349,7 +360,7 @@ export async function listarInvestimentos(alunoId: string) {
 export async function resumoInvestimentos(alunoId: string) {
   const ativos = await prisma.investimento.findMany({ where: { alunoId, status: "ativo" } });
   const totalReversivelAtivo = ativos.reduce((soma, inv) => {
-    const diasDecorridos = Math.floor((Date.now() - inv.dataInvestimento.getTime()) / (1000 * 60 * 60 * 24));
+    const diasDecorridos = diasAplicado(inv.dataInvestimento);
     return soma + calcularValorComJuros(inv.valorPrincipal, inv.taxaMensal, diasDecorridos);
   }, 0);
 

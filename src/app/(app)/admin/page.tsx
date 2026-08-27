@@ -12,7 +12,7 @@ const SECOES = [
   { href: "/admin/extrato", label: "Extrato", desc: "Filtros avançados por data, Casa, tipo e ano", icon: Receipt },
   { href: "/admin/visao-aluno", label: "Ver como aluno", desc: "Visão somente leitura do que um aluno vê", icon: Eye },
   { href: "/admin/importar", label: "Importar planilha", desc: "Alunos em massa (.csv/.xlsx)", icon: Upload },
-  { href: "/admin/ano-letivo", label: "Ano letivo", desc: "Encerrar ano e reatribuir turmas", icon: CalendarClock },
+  { href: "/admin/ano-letivo", label: "Ano letivo", desc: "Abrir o primeiro ano ou encerrar o vigente", icon: CalendarClock },
 ];
 
 /** Desktop-friendly: a especificacao (secao 9) pede aviso em telas pequenas para importar/encerrar ano. */
