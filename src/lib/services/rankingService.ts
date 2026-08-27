@@ -9,27 +9,26 @@ import { ordenarRankingTurmas, type TurmaRankingEntrada } from "@/lib/services/r
  * 0/0, senao o dashboard fica vazio ate alguem pontuar.
  */
 export async function buscarRankingTurmas(anoLetivoId: string, modo: "total" | "media" = "total") {
-  const [turmas, periodos] = await Promise.all([
+  // P9 (auditoria): a contagem de alunos era um `matricula.count` por turma
+  // (N+1). Um unico groupBy resolve todas de uma vez.
+  const [turmas, periodos, contagens] = await Promise.all([
     prisma.turma.findMany({ where: { ativo: true } }),
     prisma.turmaPeriodo.findMany({ where: { anoLetivoId } }),
+    prisma.matricula.groupBy({ by: ["turmaId"], where: { anoLetivoId }, _count: { _all: true } }),
   ]);
   const porTurma = new Map(periodos.map((p) => [p.turmaId, p]));
+  const alunosPorTurma = new Map(contagens.map((c) => [c.turmaId, c._count._all]));
 
-  const comContagem: TurmaRankingEntrada[] = await Promise.all(
-    turmas.map(async (t) => {
-      const periodo = porTurma.get(t.id);
-      const quantidadeAlunos = await prisma.matricula.count({
-        where: { turmaId: t.id, anoLetivoId },
-      });
-      return {
-        turmaId: t.id,
-        nome: t.nome,
-        saldoAtual: periodo?.saldoAtual ?? 0,
-        saldoAcumulado: periodo?.saldoAcumulado ?? 0,
-        quantidadeAlunos,
-      };
-    })
-  );
+  const comContagem: TurmaRankingEntrada[] = turmas.map((t) => {
+    const periodo = porTurma.get(t.id);
+    return {
+      turmaId: t.id,
+      nome: t.nome,
+      saldoAtual: periodo?.saldoAtual ?? 0,
+      saldoAcumulado: periodo?.saldoAcumulado ?? 0,
+      quantidadeAlunos: alunosPorTurma.get(t.id) ?? 0,
+    };
+  });
 
   return ordenarRankingTurmas(comContagem, modo);
 }

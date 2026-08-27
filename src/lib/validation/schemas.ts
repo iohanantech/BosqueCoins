@@ -7,7 +7,8 @@ export const distribuirPontosSchema = z.object({
   alunoIds: z.array(z.string().uuid()).min(1, "Selecione ao menos um aluno."),
   valor: z.number().int().positive("O valor deve ser um numero inteiro positivo."),
   motivo: z.string().trim().min(1, "O motivo e obrigatorio."),
-  data: z.coerce.date().optional(),
+  // Sem campo `data`: o timestamp do lancamento e sempre o do servidor
+  // (RN-07). Ver achado P5 da auditoria (Fase 15).
 });
 
 export const pontuarProfessorSchema = z.object({

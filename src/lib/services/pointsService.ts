@@ -31,7 +31,6 @@ export interface DistribuirPontosInput {
   alunoIds: string[]; // um ou mais alunos daquela turma (RN-09 se autor for professor/PEC)
   valor: number;
   motivo: string;
-  data?: Date;
   autorId: string;
   autorPapel: Papel;
 }
@@ -83,7 +82,11 @@ export async function distribuirPontos(input: DistribuirPontosInput) {
 
   const loteId = uuid();
   const delta = calcularPropagacaoCredito(valor);
-  const data = input.data ?? new Date();
+  // Timestamp unico para todas as linhas do lote (RN-07: log imutavel). NAO
+  // vem do cliente - o campo `data` foi removido do payload (achado P5 da
+  // auditoria): a rota so aceitava e nunca usava com proposito, mas permitia
+  // um professor forjar a data de um lancamento no extrato.
+  const data = new Date();
 
   // RN-02: tudo em uma unica transacao de banco. Credito so mexe no saldo
   // pessoal do aluno (RN-01 original SUBSTITUIDA - ver INVESTIMENTOS.md:

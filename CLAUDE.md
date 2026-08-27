@@ -18,7 +18,14 @@ Auditoria de todo o sistema em 2026-08-27 (relatório completo publicado como ar
 
 **E2E revalidado.** A suíte Playwright não rodava desde a Fase 4; contra um `bosquecoins_e2e` recriado do zero, `investir.spec.ts` estava quebrado (a Fase 14 clicava em "Resgatar" logo após investir em CDB, botão que a carência de 30 dias removeu; e o helper `lerSaldo` lia `NaN` durante o "…" de carregamento). Corrigido + teste novo cobrindo o "Resgate em 30d". **15/15 E2E, 50 unit, 103 integração, `typecheck`/`lint` limpos.**
 
-Ainda em aberto do relatório (não corrigidos): xlsx com CVEs sem patch no npm (P3), papel não validado em `/api/admin/pec-turmas` (P4), campo `data` do cliente aceito em `distribuirPontos` (P5), busca de alunos enumerável (P6), sem rate limiting (P7), N+1 no ranking (P9).
+**Segunda leva da auditoria (mesmo commit da seguinte ou o de baixo):**
+- **P4** — `POST /api/admin/pec-turmas` agora valida `papel === "professor"` (400 senão) e a existência da turma (404), antes do `upsert`.
+- **P5** — campo `data` removido de `distribuirPontosSchema` e de `DistribuirPontosInput`; o timestamp do lote é sempre `new Date()` no servidor (RN-07). A rota aceitava e nunca usava com propósito, mas deixava um professor forjar a data no extrato.
+- **P9** — `buscarRankingTurmas` trocou o `matricula.count` por turma (N+1) por um único `groupBy(["turmaId"])`.
+
+Cobertos por `tests/integration/auditoriaFase15.test.ts` (5 testes). Suíte: 50 unit, 108 integração, 15 E2E.
+
+Ainda em aberto do relatório: xlsx com CVEs sem patch no npm (P3), busca de alunos enumerável (P6), sem rate limiting (P7 — exige Upstash).
 
 ## Continuação — Fase 14 (carência de resgate por tipo de investimento — RN-28)
 
