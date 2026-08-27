@@ -2,6 +2,12 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
+## Continuação — Fase 13 (taxas de investimento ao mês)
+
+As taxas dos investimentos reversíveis (CDB 11%, Poupança 6%, Fundo Imobiliário 9%, Tesouro Direto 10,5%) agora são **ao mês**, não ao ano. Motivo: num uso de escola (semanas), a taxa anual composta diária mal movia o inteiro do saldo — BosqueCoins não têm fração e o `Math.round` de `calcularValorComJuros` só sobe de 1 quando o juro passa de 0,5, o que levava dezenas de dias corridos. Ao mês, o rendimento aparece em poucos dias.
+
+`TAXAS_ANUAIS` → `TAXAS_MENSAIS` (`taxasInvestimento.ts`, mesmos números, novo significado). `calcularValorComJuros(principal, taxaMensal, dias)` converte de mensal pra diária assumindo mês de 30 dias (`(1+taxaMensal)^(1/30)-1`), então 30 dias rendem exatamente `principal*(1+taxaMensal)`. Campo do schema `Investimento.taxaAnual` → `taxaMensal` (`@map("taxa_mensal")`), migration `20260827114335_renomeia_taxa_anual_para_mensal` — **rename de coluna, sem perda de dados** (o SQL gerado pelo Prisma seria DROP+ADD; foi reescrito à mão como `RENAME COLUMN`). UI `/investir`: badge `% a.m.` (era `% a.a.`) e o aviso das taxas fictícias agora diz "ao mês". A taxa continua congelada no momento do investimento (RN-18) — investimentos antigos mantêm o número que tinham, só reinterpretado como mensal. `typecheck`/`lint`/`test`(46)/integração(85) limpos.
+
 ## Continuação — Fase 12 (Presentear: transferência entre alunos)
 
 `PRESENTES.md` aplicado. Um aluno pode **presentear outro aluno** com BosqueCoins do próprio saldo: digita o nome do colega (autocomplete `GET /api/alunos/busca`, escopado a `papel = 'aluno'` ativos e nunca a si mesmo, com a turma do ano vigente pra desambiguar homônimos), o valor é **fixo em 10** (RN-24 — sem campo livre, sem escolha de opções), confirma, e a transferência é **instantânea** (sem fluxo de aprovação, diferente do resgate do catálogo). Recadinho opcional de até 60 caracteres.
@@ -203,7 +209,7 @@ Todas implementadas e comentadas no código-fonte, no arquivo/função correspon
 | RN-15 Só o aluno decide investir | `investmentService.ts::investir` (ou admin, via `garantirAcessoProprioOuAdmin`); exige saldo suficiente (RN-06) |
 | RN-16 Investimento em Casa/turma é irreversível | `regras.ts::ehInvestimentoIrreversivel`/`calcularDeltaInvestimentoColetivo`, `investmentService.ts::investirColetivo` — vira `Transacao` direto, sem `Investimento` |
 | RN-17 Investimentos financeiros são reversíveis | `regras.ts::ehInvestimentoReversivel`, `investmentService.ts::investirReversivel`/`resgatarInvestimento` |
-| RN-18 Taxa congelada no momento do investimento | `src/lib/config/taxasInvestimento.ts` (único lugar com os números), `regras.ts::calcularValorComJuros` (juros compostos diários) |
+| RN-18 Taxa congelada no momento do investimento | `src/lib/config/taxasInvestimento.ts` (único lugar com os números — taxas **ao mês**, `TAXAS_MENSAIS`), `regras.ts::calcularValorComJuros` (converte a mensal para diária com mês de 30 dias e compõe dia a dia). Campo `Investimento.taxaMensal` (era `taxaAnual`). |
 | RN-19 Resgate devolve principal + juros | `investmentService.ts::resgatarInvestimento` — principal não altera acumulado, juros somam nos dois |
 | RN-20 Resgate único, por inteiro | `regras.ts::validarPodeResgatar` (bloqueia resgatar duas vezes ou tipo irreversível) |
 | RN-21 Toda operação de investimento gera Transacao | `investmentService.ts` (debita aluno sempre; investir em Casa/turma também credita o coletivo; resgatar credita o aluno) |

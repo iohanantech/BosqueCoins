@@ -10,7 +10,7 @@ import {
   calcularValorComJuros,
   type TipoInvestimento,
 } from "@/lib/services/regras";
-import { TAXAS_ANUAIS, type TipoInvestimentoReversivel } from "@/lib/config/taxasInvestimento";
+import { TAXAS_MENSAIS, type TipoInvestimentoReversivel } from "@/lib/config/taxasInvestimento";
 import { getAnoLetivoAtivo } from "@/lib/services/pointsService";
 
 type TipoDoacao = "dizimo" | "lar_idoso";
@@ -207,7 +207,7 @@ async function investirReversivel(params: {
   anoLetivoId: string;
 }) {
   const { aluno, tipo, valor, anoLetivoId } = params;
-  const taxaAnual = TAXAS_ANUAIS[tipo];
+  const taxaMensal = TAXAS_MENSAIS[tipo];
 
   return prisma.$transaction(async (tx) => {
     // Mesmo debito condicional de investirColetivo - ver comentario acima.
@@ -222,7 +222,7 @@ async function investirReversivel(params: {
         alunoId: aluno.id,
         tipo,
         valorPrincipal: valor,
-        taxaAnual,
+        taxaMensal,
         status: "ativo",
       },
     });
@@ -260,7 +260,7 @@ export async function resgatarInvestimento(input: ResgatarInvestimentoInput) {
   if (!podeResgatar.valido) throw new ApiError(400, podeResgatar.erro!);
 
   const diasDecorridos = Math.floor((Date.now() - investimento.dataInvestimento.getTime()) / (1000 * 60 * 60 * 24));
-  const valorComJuros = calcularValorComJuros(investimento.valorPrincipal, investimento.taxaAnual, diasDecorridos);
+  const valorComJuros = calcularValorComJuros(investimento.valorPrincipal, investimento.taxaMensal, diasDecorridos);
   const juros = valorComJuros - investimento.valorPrincipal;
 
   const anoLetivo = await getAnoLetivoAtivo();
@@ -315,7 +315,7 @@ export async function listarInvestimentos(alunoId: string) {
   return investimentos.map((inv) => {
     if (inv.status !== "ativo") return { ...inv, valorAtual: inv.valorResgatado ?? inv.valorPrincipal };
     const diasDecorridos = Math.floor((Date.now() - inv.dataInvestimento.getTime()) / (1000 * 60 * 60 * 24));
-    return { ...inv, valorAtual: calcularValorComJuros(inv.valorPrincipal, inv.taxaAnual, diasDecorridos) };
+    return { ...inv, valorAtual: calcularValorComJuros(inv.valorPrincipal, inv.taxaMensal, diasDecorridos) };
   });
 }
 
@@ -333,7 +333,7 @@ export async function resumoInvestimentos(alunoId: string) {
   const ativos = await prisma.investimento.findMany({ where: { alunoId, status: "ativo" } });
   const totalReversivelAtivo = ativos.reduce((soma, inv) => {
     const diasDecorridos = Math.floor((Date.now() - inv.dataInvestimento.getTime()) / (1000 * 60 * 60 * 24));
-    return soma + calcularValorComJuros(inv.valorPrincipal, inv.taxaAnual, diasDecorridos);
+    return soma + calcularValorComJuros(inv.valorPrincipal, inv.taxaMensal, diasDecorridos);
   }, 0);
 
   const coletivas = await prisma.transacao.findMany({

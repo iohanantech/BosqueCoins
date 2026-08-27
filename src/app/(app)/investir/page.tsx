@@ -17,16 +17,16 @@ interface OpcaoDestino {
   descricao: string;
   irreversivel: boolean;
   doacao?: boolean; // troca o verbo "investir" por "doar" na UI - mesmo fluxo, so a palavra muda
-  taxaAnual?: number;
+  taxaMensal?: number;
 }
 
 const OPCOES: OpcaoDestino[] = [
   { tipo: "casa", nome: "Casa", descricao: "Vira ponto pra sempre no placar da sua Casa.", irreversivel: true },
   { tipo: "turma", nome: "Turma", descricao: "Vira ponto pra sempre no placar da sua turma.", irreversivel: true },
-  { tipo: "cdb", nome: "CDB", descricao: "Rende juros enquanto aplicado. Pode resgatar quando quiser.", irreversivel: false, taxaAnual: 0.11 },
-  { tipo: "poupanca", nome: "Poupança", descricao: "Rende um pouco menos, sempre disponível.", irreversivel: false, taxaAnual: 0.06 },
-  { tipo: "fundo_imobiliario", nome: "Fundo Imobiliário", descricao: "Rende parecido com \"aluguel\".", irreversivel: false, taxaAnual: 0.09 },
-  { tipo: "tesouro_direto", nome: "Tesouro Direto", descricao: "Rendimento constante, mais \"seguro\".", irreversivel: false, taxaAnual: 0.105 },
+  { tipo: "cdb", nome: "CDB", descricao: "Rende juros enquanto aplicado. Pode resgatar quando quiser.", irreversivel: false, taxaMensal: 0.11 },
+  { tipo: "poupanca", nome: "Poupança", descricao: "Rende um pouco menos, sempre disponível.", irreversivel: false, taxaMensal: 0.06 },
+  { tipo: "fundo_imobiliario", nome: "Fundo Imobiliário", descricao: "Rende parecido com \"aluguel\".", irreversivel: false, taxaMensal: 0.09 },
+  { tipo: "tesouro_direto", nome: "Tesouro Direto", descricao: "Rendimento constante, mais \"seguro\".", irreversivel: false, taxaMensal: 0.105 },
   { tipo: "dizimo", nome: "Dízimo (Igreja)", descricao: "Uma doação pra igreja. Sem volta — um ato de generosidade.", irreversivel: true, doacao: true },
   { tipo: "lar_idoso", nome: "Lar do Idoso", descricao: "Uma doação pro lar dos idosos. Sem volta — um ato de generosidade.", irreversivel: true, doacao: true },
 ];
@@ -134,7 +134,7 @@ export default function InvestirPage() {
           <CardTitle>Para onde investir?</CardTitle>
         </CardHeader>
         <p className="mb-3 text-xs text-neutral-400">
-          As taxas de CDB/Poupança/Fundo Imobiliário/Tesouro Direto são médias fictícias e simplificadas, só para fins de aprendizado — não são dados reais de mercado.
+          As taxas de CDB/Poupança/Fundo Imobiliário/Tesouro Direto são ao mês, fictícias e simplificadas, só para fins de aprendizado — não são dados reais de mercado.
         </p>
         <div className="grid grid-cols-2 gap-2">
           {OPCOES.map((o) => (
@@ -152,7 +152,7 @@ export default function InvestirPage() {
                 {o.irreversivel ? (
                   <Badge variant="danger">Sem volta</Badge>
                 ) : (
-                  <Badge variant="gold">{((o.taxaAnual ?? 0) * 100).toFixed(1)}% a.a.</Badge>
+                  <Badge variant="gold">{((o.taxaMensal ?? 0) * 100).toFixed(1)}% a.m.</Badge>
                 )}
               </div>
               <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{o.descricao}</p>

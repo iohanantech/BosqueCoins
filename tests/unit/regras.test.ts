@@ -117,21 +117,21 @@ describe("RN-04 — resgate individual nao afeta agregados", () => {
   });
 });
 
-describe("RN-18 — calcularValorComJuros (juros compostos diarios)", () => {
+describe("RN-18 — calcularValorComJuros (taxa MENSAL, composta diariamente)", () => {
   it("0 dias decorridos retorna o principal exato", () => {
     expect(calcularValorComJuros(100, 0.11, 0)).toBe(100);
   });
 
-  it("365 dias decorridos retorna aproximadamente principal * (1 + taxaAnual)", () => {
-    const resultado = calcularValorComJuros(1000, 0.11, 365);
-    // Composto diario ao longo de 365 dias fica muito proximo da taxa anual nominal
-    expect(resultado).toBeGreaterThanOrEqual(1100);
-    expect(resultado).toBeLessThanOrEqual(1115);
+  it("30 dias decorridos retorna principal * (1 + taxaMensal) — mes de 30 dias", () => {
+    // 11% a.m. sobre 1000, exatamente um mes -> 1110
+    expect(calcularValorComJuros(1000, 0.11, 30)).toBe(1110);
+    // 6% a.m. sobre 1000 -> 1060
+    expect(calcularValorComJuros(1000, 0.06, 30)).toBe(1060);
   });
 
   it("taxas diferentes produzem valores diferentes na mesma janela de tempo", () => {
-    const comPoupanca = calcularValorComJuros(1000, 0.06, 180);
-    const comCdb = calcularValorComJuros(1000, 0.11, 180);
+    const comPoupanca = calcularValorComJuros(1000, 0.06, 15);
+    const comCdb = calcularValorComJuros(1000, 0.11, 15);
     expect(comCdb).toBeGreaterThan(comPoupanca);
   });
 

@@ -4,7 +4,7 @@ import { criarFixtureBase } from "./fixtures";
 import { distribuirPontos } from "@/lib/services/pointsService";
 import { investir, resgatarInvestimento, resumoInvestimentos } from "@/lib/services/investmentService";
 import { calcularValorComJuros } from "@/lib/services/regras";
-import { TAXAS_ANUAIS } from "@/lib/config/taxasInvestimento";
+import { TAXAS_MENSAIS } from "@/lib/config/taxasInvestimento";
 import { ApiError } from "@/lib/auth/server";
 
 async function darSaldo(alunoId: string, turmaId: string, professorId: string, valor: number) {
@@ -33,7 +33,7 @@ describe("RN-15/17/18 - investir em tipo reversivel (CDB)", () => {
     const registro = await prisma.investimento.findUniqueOrThrow({ where: { id: (investimento as { id: string }).id } });
     expect(registro.status).toBe("ativo");
     expect(registro.valorPrincipal).toBe(40);
-    expect(registro.taxaAnual).toBe(TAXAS_ANUAIS.cdb);
+    expect(registro.taxaMensal).toBe(TAXAS_MENSAIS.cdb);
   });
 
   it("RN-15/RN-06 - investir mais que o saldo disponivel falha", async () => {
@@ -61,7 +61,7 @@ describe("RN-18/RN-19 - resgatar um investimento reversivel devolve principal + 
 
     const resultado = await resgatarInvestimento({ investimentoId, alunoId: alunoA1.id });
 
-    const esperado = calcularValorComJuros(50, TAXAS_ANUAIS.cdb, 60);
+    const esperado = calcularValorComJuros(50, TAXAS_MENSAIS.cdb, 60);
     expect(resultado.valorResgatado).toBe(esperado);
     expect(resultado.status).toBe("resgatado");
 

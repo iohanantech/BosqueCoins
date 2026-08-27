@@ -249,13 +249,15 @@ export function validarPodeResgatar(
 }
 
 /**
- * RN-18 — juros compostos diarios sobre o principal, a partir da taxa anual
+ * RN-18 — juros compostos diarios sobre o principal, a partir da taxa MENSAL
  * media do tipo (congelada no momento do investimento - taxasInvestimento.ts).
+ * A taxa e ao mes; convertemos para diaria assumindo mes de 30 dias, entao
+ * 30 dias decorridos rendem exatamente `principal * (1 + taxaMensal)`.
  * Arredonda so no final: BosqueCoins sao inteiros, e acumular arredondamento
  * dia a dia distorceria o resultado em prazos longos.
  */
-export function calcularValorComJuros(principal: number, taxaAnual: number, diasDecorridos: number): number {
-  const taxaDiaria = Math.pow(1 + taxaAnual, 1 / 365) - 1;
+export function calcularValorComJuros(principal: number, taxaMensal: number, diasDecorridos: number): number {
+  const taxaDiaria = Math.pow(1 + taxaMensal, 1 / 30) - 1;
   const valor = principal * Math.pow(1 + taxaDiaria, diasDecorridos);
   return Math.round(valor);
 }

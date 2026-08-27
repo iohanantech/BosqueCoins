@@ -301,7 +301,7 @@ model Investimento {
   destinoTurmaId   String?             @map("destino_turma_id")
   destinoCasaId    String?             @map("destino_casa_id")
   valorPrincipal   Int                 @map("valor_principal")
-  taxaAnual        Float               @map("taxa_anual") // snapshot - nao muda se taxasInvestimento.ts mudar depois (RN-18)
+  taxaMensal       Float               @map("taxa_mensal") // taxa AO MES, snapshot - nao muda se taxasInvestimento.ts mudar depois (RN-18)
   status           StatusInvestimento  @default(ativo)
   dataInvestimento DateTime            @default(now()) @map("data_investimento")
   dataResgate      DateTime?           @map("data_resgate")
