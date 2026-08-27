@@ -129,7 +129,9 @@ export default function DashboardPage() {
                 {dados.contextoAluno.turma} · #{dados.contextoAluno.posicaoTurma ?? "-"} nas Salas
               </span>
             )}
-            {dados.contextoAluno.posicaoCasa && <span>#{dados.contextoAluno.posicaoCasa} na Copa das Casas</span>}
+            {dados.contextoAluno.posicaoCasa && (
+              <span>#{dados.contextoAluno.posicaoCasa} na Copa das Casas do Bosque</span>
+            )}
           </div>
         </Card>
       )}
@@ -210,8 +212,8 @@ export default function DashboardPage() {
         <p className="py-10 text-center text-sm text-neutral-400">Carregando rankings…</p>
       ) : dados ? (
         <>
-          {papel !== "aluno" && <RankingTurmas dados={dados.turmas} modo={modoTurmas} onModoChange={setModoTurmas} />}
           <RankingCasas dados={dados.casas} />
+          {papel !== "aluno" && <RankingTurmas dados={dados.turmas} modo={modoTurmas} onModoChange={setModoTurmas} />}
         </>
       ) : null}
     </div>

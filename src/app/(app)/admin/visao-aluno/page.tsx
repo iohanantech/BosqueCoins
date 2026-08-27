@@ -161,7 +161,7 @@ export default function AdminVisaoAlunoPage() {
                     {contexto.turma} · #{contexto.posicaoTurma ?? "-"} nas Salas
                   </span>
                 )}
-                {contexto.posicaoCasa && <span>#{contexto.posicaoCasa} na Copa das Casas</span>}
+                {contexto.posicaoCasa && <span>#{contexto.posicaoCasa} na Copa das Casas do Bosque</span>}
               </div>
             </Card>
           )}

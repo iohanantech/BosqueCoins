@@ -10,12 +10,12 @@ export interface CasaRankingItem {
   saldoAcumulado: number;
 }
 
-/** Ranking da Copa das Casas (secao 4.1) - com destaque visual de pódio e cores oficiais. */
+/** Ranking da Copa das Casas do Bosque (secao 4.1) - com destaque visual de pódio e cores oficiais. */
 export function RankingCasas({ dados }: { dados: CasaRankingItem[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>🏆 Copa das Casas</CardTitle>
+        <CardTitle>🏆 Copa das Casas do Bosque</CardTitle>
       </CardHeader>
 
       <ul className="space-y-2">
