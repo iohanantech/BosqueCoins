@@ -29,7 +29,7 @@ const OPCOES = [
 
 const VIRTUDES = [
   {
-    titulo: "Mordomia",
+    titulo: "Responsabilidade",
     texto: "O que você recebe não é só seu pra gastar sem pensar — é algo confiado a você. Cuidar bem disso é uma forma de ser fiel com o pouco antes de receber o muito.",
     referencia: "Mateus 25 (parábola dos talentos)",
   },
