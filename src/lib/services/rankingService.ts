@@ -2,27 +2,30 @@ import { prisma } from "@/lib/db";
 import { ordenarRankingTurmas, type TurmaRankingEntrada } from "@/lib/services/regras";
 
 /**
- * Ranking de Salas (secao 4.1): turmas do ano letivo pedido (padrao: ano
- * vigente), com contagem de matriculados calculada em consulta para a media.
+ * Ranking de Salas (secao 4.1): TODAS as turmas ativas, com o saldo do ano
+ * letivo pedido (padrao: ano vigente). A linha de `TurmaPeriodo` so passa a
+ * existir quando a turma recebe o primeiro ponto (investimento de aluno ou
+ * ajuste de PEC) - antes disso a turma ainda deve aparecer no ranking, com
+ * 0/0, senao o dashboard fica vazio ate alguem pontuar.
  */
 export async function buscarRankingTurmas(anoLetivoId: string, modo: "total" | "media" = "total") {
-  const periodos = await prisma.turmaPeriodo.findMany({
-    where: { anoLetivoId },
-    include: {
-      turma: true,
-    },
-  });
+  const [turmas, periodos] = await Promise.all([
+    prisma.turma.findMany({ where: { ativo: true } }),
+    prisma.turmaPeriodo.findMany({ where: { anoLetivoId } }),
+  ]);
+  const porTurma = new Map(periodos.map((p) => [p.turmaId, p]));
 
   const comContagem: TurmaRankingEntrada[] = await Promise.all(
-    periodos.map(async (p) => {
+    turmas.map(async (t) => {
+      const periodo = porTurma.get(t.id);
       const quantidadeAlunos = await prisma.matricula.count({
-        where: { turmaId: p.turmaId, anoLetivoId },
+        where: { turmaId: t.id, anoLetivoId },
       });
       return {
-        turmaId: p.turmaId,
-        nome: p.turma.nome,
-        saldoAtual: p.saldoAtual,
-        saldoAcumulado: p.saldoAcumulado,
+        turmaId: t.id,
+        nome: t.nome,
+        saldoAtual: periodo?.saldoAtual ?? 0,
+        saldoAcumulado: periodo?.saldoAcumulado ?? 0,
         quantidadeAlunos,
       };
     })
@@ -31,22 +34,27 @@ export async function buscarRankingTurmas(anoLetivoId: string, modo: "total" | "
   return ordenarRankingTurmas(comContagem, modo);
 }
 
-/** Ranking da Copa das Casas (secao 4.1) - sem modo "media" por ora. */
+/** Ranking da Copa das Casas (secao 4.1) - todas as Casas ativas, mesmo com 0. */
 export async function buscarRankingCasas(anoLetivoId: string) {
-  const periodos = await prisma.casaPeriodo.findMany({
-    where: { anoLetivoId },
-    include: { casa: true },
-    orderBy: { saldoAtual: "desc" },
-  });
+  const [casas, periodos] = await Promise.all([
+    prisma.casa.findMany({ where: { ativo: true } }),
+    prisma.casaPeriodo.findMany({ where: { anoLetivoId } }),
+  ]);
+  const porCasa = new Map(periodos.map((p) => [p.casaId, p]));
 
-  return periodos.map((p) => ({
-    casaId: p.casaId,
-    nome: p.casa.nome,
-    corPrimaria: p.casa.corPrimariaHex,
-    corSecundaria: p.casa.corSecundariaHex,
-    saldoAtual: p.saldoAtual,
-    saldoAcumulado: p.saldoAcumulado,
-  }));
+  return casas
+    .map((c) => {
+      const periodo = porCasa.get(c.id);
+      return {
+        casaId: c.id,
+        nome: c.nome,
+        corPrimaria: c.corPrimariaHex,
+        corSecundaria: c.corSecundariaHex,
+        saldoAtual: periodo?.saldoAtual ?? 0,
+        saldoAcumulado: periodo?.saldoAcumulado ?? 0,
+      };
+    })
+    .sort((a, b) => b.saldoAtual - a.saldoAtual);
 }
 
 /** Contexto pessoal do dashboard: posicao da turma/Casa do aluno no ano vigente. */
