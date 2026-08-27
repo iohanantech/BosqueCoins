@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { AvisoDesktop } from "@/components/layout/aviso-desktop";
 
 interface LinhaValidada {
@@ -13,6 +14,135 @@ interface LinhaValidada {
   turma: string;
   casa: string;
   status: string;
+}
+
+interface TurmaOpt {
+  id: string;
+  nome: string;
+}
+interface CasaOpt {
+  id: string;
+  nome: string;
+}
+
+/**
+ * Cadastro de UM aluno sem planilha. Mesmo efeito de uma linha da importação:
+ * cria o usuário (papel aluno) + matrícula na turma do ano vigente.
+ */
+function CadastroAlunoManual() {
+  const [turmas, setTurmas] = useState<TurmaOpt[]>([]);
+  const [casas, setCasas] = useState<CasaOpt[]>([]);
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [turmaId, setTurmaId] = useState("");
+  const [turmaNova, setTurmaNova] = useState("");
+  const [casaId, setCasaId] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [feedback, setFeedback] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);
+
+  function carregarListas() {
+    fetch("/api/turmas")
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setTurmas)
+      .catch(() => setTurmas([]));
+    fetch("/api/casas")
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setCasas)
+      .catch(() => setCasas([]));
+  }
+
+  useEffect(carregarListas, []);
+
+  async function cadastrar() {
+    setFeedback(null);
+    setSalvando(true);
+    try {
+      const res = await fetch("/api/admin/alunos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome,
+          email,
+          turmaId: turmaId || undefined,
+          turmaNome: turmaId ? undefined : turmaNova.trim() || undefined,
+          casaId: casaId || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setFeedback({ tipo: "erro", texto: json.erro ?? "Não foi possível cadastrar o aluno." });
+        return;
+      }
+      setFeedback({ tipo: "sucesso", texto: `Aluno "${json.nome}" cadastrado.` });
+      setNome("");
+      setEmail("");
+      setTurmaNova("");
+      setCasaId("");
+      carregarListas(); // uma turma nova pode ter sido criada
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const temTurma = Boolean(turmaId) || turmaNova.trim().length > 0;
+  const selectClass =
+    "h-11 w-full rounded-xl2 border border-neutral-300 bg-white px-3 text-sm dark:border-neutral-700 dark:bg-graphite-soft";
+
+  return (
+    <Card className="space-y-2">
+      <p className="text-sm font-semibold">Cadastrar aluno manualmente</p>
+      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+        Para incluir um aluno de cada vez, sem planilha. Ele já entra matriculado na turma do ano letivo vigente.
+      </p>
+
+      <Input placeholder="Nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+      <Input
+        placeholder="E-mail institucional"
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+
+      <div>
+        <p className="mb-1 text-xs font-medium text-neutral-500">Turma</p>
+        <select className={selectClass} value={turmaId} onChange={(e) => setTurmaId(e.target.value)}>
+          <option value="">— nova turma —</option>
+          {turmas.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.nome}
+            </option>
+          ))}
+        </select>
+        {!turmaId && (
+          <Input
+            className="mt-2"
+            placeholder="Nome da turma nova (ex.: 6º A)"
+            value={turmaNova}
+            onChange={(e) => setTurmaNova(e.target.value)}
+          />
+        )}
+      </div>
+
+      <div>
+        <p className="mb-1 text-xs font-medium text-neutral-500">Casa (opcional)</p>
+        <select className={selectClass} value={casaId} onChange={(e) => setCasaId(e.target.value)}>
+          <option value="">Sem casa</option>
+          {casas.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {feedback && (
+        <p className={`text-xs ${feedback.tipo === "sucesso" ? "text-emerald-600" : "text-red-600"}`}>{feedback.texto}</p>
+      )}
+      <Button className="w-full" disabled={salvando || !nome || !email || !temTurma} onClick={cadastrar}>
+        {salvando ? "Salvando…" : "Cadastrar aluno"}
+      </Button>
+    </Card>
+  );
 }
 
 const STATUS_LABEL: Record<string, { label: string; variant: "success" | "danger" | "warning" }> = {
@@ -68,8 +198,17 @@ export default function AdminImportarPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-lg font-semibold">Importar planilha</h1>
-      <AvisoDesktop>Esta tela funciona melhor em um computador — em telas pequenas, a tabela fica apertada.</AvisoDesktop>
+      <h1 className="font-display text-lg font-semibold">Cadastrar alunos</h1>
+
+      <CadastroAlunoManual />
+
+      <div className="flex items-center gap-3 pt-2">
+        <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
+        <span className="text-xs font-medium text-neutral-400">ou importe uma planilha</span>
+        <div className="h-px flex-1 bg-neutral-200 dark:bg-neutral-800" />
+      </div>
+
+      <AvisoDesktop>A importação por planilha funciona melhor em um computador — em telas pequenas, a tabela fica apertada.</AvisoDesktop>
 
       <Card>
         <p className="mb-2 text-sm font-medium">Arquivo (.csv ou .xlsx)</p>

@@ -108,6 +108,23 @@ export const criarAdminSchema = z.object({
   email: z.string().trim().toLowerCase().email("E-mail invalido."),
 });
 
+// Cadastro individual de aluno (alternativa a importar planilha). A turma e
+// obrigatoria (um aluno sempre pertence a uma turma - Matricula, RN-11):
+// ou aponta uma existente por `turmaId`, ou passa `turmaNome` para criar uma
+// nova na hora (mesmo comportamento do fluxo de importacao). Casa e opcional.
+export const criarAlunoSchema = z
+  .object({
+    nome: z.string().trim().min(1, "O nome e obrigatorio."),
+    email: z.string().trim().toLowerCase().email("E-mail invalido."),
+    turmaId: z.string().uuid().optional(),
+    turmaNome: z.string().trim().min(1).optional(),
+    casaId: z.string().uuid().optional(),
+  })
+  .refine((d) => Boolean(d.turmaId) || Boolean(d.turmaNome), {
+    message: "Informe a turma: selecione uma existente ou digite o nome de uma nova.",
+    path: ["turmaId"],
+  });
+
 export const alterarAdminSchema = z.object({
   ativo: z.boolean(),
 });

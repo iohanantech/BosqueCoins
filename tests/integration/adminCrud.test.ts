@@ -395,3 +395,106 @@ describe("Editar e excluir itens do catalogo (via API)", () => {
     expect(resDelete.status).toBe(403);
   });
 });
+
+describe("Cadastro individual de aluno (via API)", () => {
+  it("professor NAO pode cadastrar aluno", async () => {
+    const { professorComum, turmaA } = await criarFixtureBase();
+    logarComo(professorComum, "professor");
+    const { POST } = await import("@/app/api/admin/alunos/route");
+    const res = await POST(
+      new NextRequest("http://localhost/api/admin/alunos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: "Novo Aluno", email: "novo.aluno@bosquemananciais.org.br", turmaId: turmaA.id }),
+      })
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("admin cadastra aluno numa turma existente: cria usuario aluno + matricula no ano vigente", async () => {
+    const { admin, turmaA, casaA, anoLetivo } = await criarFixtureBase();
+    logarComo(admin, "admin");
+    const { POST } = await import("@/app/api/admin/alunos/route");
+    const res = await POST(
+      new NextRequest("http://localhost/api/admin/alunos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: "Ana Aluna",
+          email: "ana.aluna@bosquemananciais.org.br",
+          turmaId: turmaA.id,
+          casaId: casaA.id,
+        }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const criado = await res.json();
+
+    const noBanco = await prisma.usuario.findUniqueOrThrow({ where: { id: criado.id } });
+    expect(noBanco.papel).toBe("aluno");
+    expect(noBanco.casaId).toBe(casaA.id);
+    const matricula = await prisma.matricula.findUniqueOrThrow({
+      where: { alunoId_anoLetivoId: { alunoId: criado.id, anoLetivoId: anoLetivo.id } },
+    });
+    expect(matricula.turmaId).toBe(turmaA.id);
+  });
+
+  it("admin cadastra aluno passando turmaNome nova: a turma e criada na hora", async () => {
+    const { admin } = await criarFixtureBase();
+    logarComo(admin, "admin");
+    const { POST } = await import("@/app/api/admin/alunos/route");
+    const res = await POST(
+      new NextRequest("http://localhost/api/admin/alunos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: "Beto", email: "beto@bosquemananciais.org.br", turmaNome: "7º C" }),
+      })
+    );
+    expect(res.status).toBe(201);
+    const turma = await prisma.turma.findUnique({ where: { nome: "7º C" } });
+    expect(turma).not.toBeNull();
+  });
+
+  it("e-mail de dominio externo (RN-10) e rejeitado com 400", async () => {
+    const { admin, turmaA } = await criarFixtureBase();
+    logarComo(admin, "admin");
+    const { POST } = await import("@/app/api/admin/alunos/route");
+    const res = await POST(
+      new NextRequest("http://localhost/api/admin/alunos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: "Fora", email: "fora@gmail.com", turmaId: turmaA.id }),
+      })
+    );
+    expect(res.status).toBe(400);
+    expect(await prisma.usuario.findUnique({ where: { email: "fora@gmail.com" } })).toBeNull();
+  });
+
+  it("e-mail ja cadastrado e rejeitado com 400", async () => {
+    const { admin, alunoA1, turmaA } = await criarFixtureBase();
+    logarComo(admin, "admin");
+    const { POST } = await import("@/app/api/admin/alunos/route");
+    const res = await POST(
+      new NextRequest("http://localhost/api/admin/alunos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: "Repetido", email: alunoA1.email, turmaId: turmaA.id }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("sem turma (nem turmaId nem turmaNome) e rejeitado com 400", async () => {
+    const { admin } = await criarFixtureBase();
+    logarComo(admin, "admin");
+    const { POST } = await import("@/app/api/admin/alunos/route");
+    const res = await POST(
+      new NextRequest("http://localhost/api/admin/alunos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: "Sem Turma", email: "semturma@bosquemananciais.org.br" }),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+});
