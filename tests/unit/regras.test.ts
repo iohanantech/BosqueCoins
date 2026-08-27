@@ -21,6 +21,9 @@ import {
   ehDoacao,
   validarPodeResgatar,
   calcularDeltaInvestimentoColetivo,
+  validarLimiteSemanalPresentes,
+  VALOR_PRESENTE,
+  LIMITE_SEMANAL_PRESENTES,
 } from "@/lib/services/regras";
 
 describe("RN-14 — limite de valor para professor comum", () => {
@@ -233,6 +236,31 @@ describe("RN-13 — professor fora dos rankings", () => {
     const filtrado = excluirProfessoresDoRanking(itens);
     expect(filtrado).toHaveLength(2);
     expect(filtrado.some((i) => i.destinoTipo === "professor")).toBe(false);
+  });
+});
+
+describe("RN-27 — limite semanal de presentes enviados", () => {
+  it("valor fixo e teto sao ambos 10 (um presente por janela, na pratica)", () => {
+    expect(VALOR_PRESENTE).toBe(10);
+    expect(LIMITE_SEMANAL_PRESENTES).toBe(10);
+  });
+
+  it("primeiro presente da janela passa (nada enviado ainda)", () => {
+    expect(validarLimiteSemanalPresentes(0, VALOR_PRESENTE).valido).toBe(true);
+  });
+
+  it("segundo presente na mesma janela e bloqueado", () => {
+    const r = validarLimiteSemanalPresentes(VALOR_PRESENTE, VALOR_PRESENTE);
+    expect(r.valido).toBe(false);
+    expect(r.erro).toBeTruthy();
+  });
+
+  it("soma valores, nao conta presentes: 6 + 5 estoura o teto de 10", () => {
+    expect(validarLimiteSemanalPresentes(6, 5).valido).toBe(false);
+  });
+
+  it("bater exatamente no teto (4 + 6) ainda e permitido", () => {
+    expect(validarLimiteSemanalPresentes(4, 6).valido).toBe(true);
   });
 });
 

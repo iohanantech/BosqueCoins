@@ -8,7 +8,7 @@ import { RankingTurmas, type TurmaRankingItem } from "@/components/dashboard/ran
 import { RankingCasas, type CasaRankingItem } from "@/components/dashboard/ranking-casas";
 import { InstrucoesInvestimento } from "@/components/dashboard/instrucoes-investimento";
 import Link from "next/link";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, Gift } from "lucide-react";
 
 interface AnoLetivo {
   id: string;
@@ -40,10 +40,16 @@ interface ResumoInvestimentos {
   quantidadeAtivos: number;
 }
 
+interface StatusPresente {
+  podeEnviar: boolean;
+  diasAteLiberar: number;
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [dados, setDados] = useState<RankingsResponse | null>(null);
   const [resumoInvestimentos, setResumoInvestimentos] = useState<ResumoInvestimentos | null>(null);
+  const [statusPresente, setStatusPresente] = useState<StatusPresente | null>(null);
   const [anoSelecionado, setAnoSelecionado] = useState<string>("");
   const [modoTurmas, setModoTurmas] = useState<"total" | "media">("total");
   const [carregando, setCarregando] = useState(true);
@@ -74,6 +80,9 @@ export default function DashboardPage() {
     fetch("/api/investimentos?resumo=true")
       .then((r) => r.json())
       .then(setResumoInvestimentos);
+    fetch("/api/presentes")
+      .then((r) => r.json())
+      .then(setStatusPresente);
   }, [papel]);
 
   return (
@@ -148,6 +157,27 @@ export default function DashboardPage() {
               </p>
             </div>
             <TrendingUp className="h-8 w-8" />
+          </Card>
+        </Link>
+      )}
+
+      {/* Presentear um colega (PRESENTES.md, RN-23..RN-27) - transferencia
+          instantanea de saldo entre alunos. Atalho no dashboard em vez de aba
+          propria na bottom nav (mesmo padrao do card "Investir"). */}
+      {papel === "aluno" && (
+        <Link href="/presentear">
+          <Card className="flex items-center justify-between bg-gold-gradient text-white">
+            <div>
+              <p className="font-display font-semibold">Presentear um colega</p>
+              <p className="text-xs opacity-80">
+                {statusPresente
+                  ? statusPresente.podeEnviar
+                    ? "Envie 10 BosqueCoins do seu saldo para outro aluno"
+                    : `Disponível de novo em ${statusPresente.diasAteLiberar} dia${statusPresente.diasAteLiberar > 1 ? "s" : ""}`
+                  : "Envie BosqueCoins para outro aluno"}
+              </p>
+            </div>
+            <Gift className="h-8 w-8" />
           </Card>
         </Link>
       )}

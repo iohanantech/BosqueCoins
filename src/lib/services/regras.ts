@@ -264,3 +264,31 @@ export function calcularValorComJuros(principal: number, taxaAnual: number, dias
 export function calcularDeltaInvestimentoColetivo(valor: number): { saldoAtual: number; saldoAcumulado: number } {
   return { saldoAtual: valor, saldoAcumulado: valor };
 }
+
+// --- Presentear (PRESENTES.md, RN-23..RN-27) ---
+
+/** RN-24 — o valor de um presente e fixo; nao ha campo livre nem escolha de opcoes. */
+export const VALOR_PRESENTE = 10;
+
+/** RN-27 — teto de BosqueCoins que um aluno pode ENVIAR em presentes dentro da janela movel. */
+export const LIMITE_SEMANAL_PRESENTES = 10;
+
+/** RN-27 — tamanho da janela movel (dias corridos a partir de "agora", nao semana de calendario). */
+export const JANELA_PRESENTE_DIAS = 7;
+
+/** Limite de tamanho do recado opcional que acompanha o presente. */
+export const MAX_MENSAGEM_PRESENTE = 60;
+
+/**
+ * RN-27 — dado o total ja enviado em presentes nos ultimos JANELA_PRESENTE_DIAS
+ * dias, decide se cabe mais um presente de `valorNovo`. Soma valores (nao conta
+ * presentes) de proposito: continua correto se um valor diferente de
+ * VALOR_PRESENTE for reintroduzido no futuro. Com o valor fixo atual (10 = teto)
+ * isso equivale, na pratica, a no maximo um presente enviado por semana.
+ */
+export function validarLimiteSemanalPresentes(totalEnviadoNaJanela: number, valorNovo: number): ValidacaoResultado {
+  if (totalEnviadoNaJanela + valorNovo > LIMITE_SEMANAL_PRESENTES) {
+    return { valido: false, erro: "Voce ja usou seu presente da semana. Aguarde a janela de 7 dias reabrir." };
+  }
+  return { valido: true };
+}

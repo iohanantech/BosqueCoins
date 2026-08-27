@@ -63,6 +63,15 @@ export const investirSchema = z.object({
   alunoId: z.string().uuid().optional(), // so quando admin investe em nome do aluno (RN-15)
 });
 
+// Presentear (PRESENTES.md, RN-23..RN-27). O corpo NAO carrega `valor` - e
+// sempre VALOR_PRESENTE (10), fixado no backend (RN-24). O remetente tambem
+// nunca vem do corpo: e sempre session.user.id (RN-08 - ninguem presenteia
+// "em nome de" outro aluno).
+export const enviarPresenteSchema = z.object({
+  destinatarioId: z.string().uuid(),
+  mensagem: z.string().trim().max(60, "O recado deve ter no maximo 60 caracteres.").optional(),
+});
+
 const hexColorSchema = z
   .string()
   .trim()

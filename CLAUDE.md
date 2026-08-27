@@ -2,6 +2,18 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
+## Continuação — Fase 12 (Presentear: transferência entre alunos)
+
+`PRESENTES.md` aplicado. Um aluno pode **presentear outro aluno** com BosqueCoins do próprio saldo: digita o nome do colega (autocomplete `GET /api/alunos/busca`, escopado a `papel = 'aluno'` ativos e nunca a si mesmo, com a turma do ano vigente pra desambiguar homônimos), o valor é **fixo em 10** (RN-24 — sem campo livre, sem escolha de opções), confirma, e a transferência é **instantânea** (sem fluxo de aprovação, diferente do resgate do catálogo). Recadinho opcional de até 60 caracteres.
+
+**MULTIESCOLA.md não estava aplicado** neste checkout, então o modelo `Presente` **não tem `escolaId`** e as regras foram numeradas **RN-23..RN-27** (continuando de RN-22, não de RN-26). Se `MULTIESCOLA.md` for aplicado depois, falta: adicionar `escolaId` a `Presente` (obrigatório, batendo entre remetente e destinatário), pré-filtrar a busca por escola e revalidar no backend antes de gravar (destinatário de outra escola → 404, não 403).
+
+**Decisão de design central (RN-25), documentada no schema e no service**: presentear **não altera o saldo ACUMULADO** de nenhum dos dois — só o ATUAL. O acumulado é a métrica de prestígio de rankings/extratos; se o presente somasse nele, dois alunos poderiam se presentear de ida e volta pra sempre e inflar o acumulado sem mérito. Remetente: `saldoAtual -= 10` (igual a gastar num resgate/investimento — RN-04/RN-16). Destinatário: `saldoAtual += 10` (diferente de receber pontos de professor, que aí conta pro acumulado). Teste "round-trip" em `presentes.test.ts` prova que A↔B não muda o acumulado de ninguém.
+
+`presenteService.ts`: `enviarPresente` faz débito condicional atômico (`updateMany where saldoAtual >= valor`) dentro de `prisma.$transaction` (RN-26/RN-02/RN-06), credita o destinatário, cria o `Presente` e **2 `Transacao`** (débito no remetente + crédito no destinatário) com `loteId = presente.id` — reaproveita o `agruparPorLote` do extrato e o `motivo` já traz o nome da outra pessoa ("Presente enviado para X" / "Presente recebido de Y"), então o extrato do aluno mostra tudo sem código de exibição novo. `statusPresenteSemana` calcula quanto já foi enviado na janela móvel de 7 dias corridos (RN-27, soma valores — não conta presentes — pra continuar correto se um valor ≠ 10 voltar) e quantos dias faltam pra reabrir; `GET /api/presentes` expõe isso pra `/presentear` e pro card do dashboard avisarem **antes** de o aluno tentar enviar.
+
+UI: `/presentear` (aluno-only no `middleware.ts`, mesmo padrão de `/investir`) + card "Presentear um colega" no dashboard do aluno (não virou aba na bottom nav, de propósito). Migration `20260827111432_presentes`. `typecheck`/`lint`/`test`(46) limpos; integração em **85 testes** (15 novos em `tests/integration/presentes.test.ts` + `validarLimiteSemanalPresentes` em `regras.test.ts`).
+
 ## Continuação — Fase 11 (testes de integração dos CRUDs administrativos)
 
 Item que ficava pendente desde a Fase 8 ("próximo passo sugerido"): `tests/integration/adminCrud.test.ts` (19 testes novos) cobre agora, contra Postgres real, os 5 CRUDs administrativos que só tinham verificação manual — Casas, Turmas (+ matrícula/remanejo de alunos), cadastro de professor (+ marcar PEC), cadastro de administrador (restrito ao super admin) e editar/excluir catálogo. Cobre em cada um: quem não é admin recebe 403; nome/e-mail duplicado é rejeitado; o caminho feliz funciona e persiste certinho no banco. Casos específicos: RN-10 (domínio) na criação de professor/admin; matricular um aluno já matriculado noutra turma o remaneja em vez de duplicar; excluir item de catálogo com resgate no histórico é bloqueado; super admin não pode remover a si mesmo.
@@ -168,7 +180,7 @@ Separação deliberada entre **regras puras** e **I/O**, para permitir testar a 
 - **`anoLetivoService.ts`** — encerramento do ano letivo (seção 5).
 - **`investmentService.ts`** — `investir`/`resgatarInvestimento`/`listarInvestimentos`/`resumoInvestimentos` (RN-15..RN-21, ver INVESTIMENTOS.md).
 
-## Regras de negócio (RN-01 a RN-22)
+## Regras de negócio (RN-01 a RN-27)
 
 Todas implementadas e comentadas no código-fonte, no arquivo/função correspondente. Resumo de onde encontrar cada uma:
 
@@ -196,6 +208,11 @@ Todas implementadas e comentadas no código-fonte, no arquivo/função correspon
 | RN-20 Resgate único, por inteiro | `regras.ts::validarPodeResgatar` (bloqueia resgatar duas vezes ou tipo irreversível) |
 | RN-21 Toda operação de investimento gera Transacao | `investmentService.ts` (debita aluno sempre; investir em Casa/turma também credita o coletivo; resgatar credita o aluno) |
 | RN-22 Só o PEC inicia gasto do saldo da turma | `src/app/api/redemptions/route.ts::POST` — admin não solicita mais resgate de escopo turma (só aprova, que é camada separada) |
+| RN-23 Só aluno presenteia outro aluno ativo | `presenteService.ts::enviarPresente` (remetente/destinatário `papel = 'aluno'`, destinatário `ativo`, remetente ≠ destinatário); rota `POST /api/presentes` é `requirePapel("aluno")`; remetente vem sempre da sessão, nunca do corpo (RN-08) |
+| RN-24 Valor do presente é fixo em 10 | `regras.ts::VALOR_PRESENTE`; `enviarPresenteSchema` não tem campo `valor` — qualquer `valor` no corpo é ignorado, grava sempre 10 |
+| RN-25 Presentear só move o saldo ATUAL, nunca o ACUMULADO | `presenteService.ts::enviarPresente` (comentário explica o porquê: fecha a brecha de dois alunos inflarem o acumulado se presenteando de ida e volta) — remetente `saldoAtual -= 10`, destinatário `saldoAtual += 10`, nenhum `saldoAcumulado` tocado |
+| RN-26 Transferência instantânea, saldo suficiente dentro da transação | `presenteService.ts::enviarPresente` — sem status/aprovação; débito condicional atômico (`updateMany where saldoAtual >= valor`) dentro de `prisma.$transaction` (RN-02/RN-06) |
+| RN-27 Limite semanal de 10 BosqueCoins enviados por remetente (janela móvel de 7 dias) | `regras.ts::validarLimiteSemanalPresentes` (soma valores, não conta presentes); `presenteService.ts::enviarPresente` re-soma dentro da transação; `statusPresenteSemana` + `GET /api/presentes` alimentam o aviso prévio na UI |
 
 ## Pressupostos assumidos (seção 12 da especificação)
 

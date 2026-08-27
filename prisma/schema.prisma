@@ -115,6 +115,8 @@ model Usuario {
   resgatesSolicitados Resgate[]                  @relation("ResgateSolicitante")
   resgatesAprovados   Resgate[]                  @relation("ResgateAprovador")
   investimentos       Investimento[]
+  presentesEnviados   Presente[]                 @relation("PresentesEnviados")
+  presentesRecebidos  Presente[]                 @relation("PresentesRecebidos")
 
   @@map("usuarios")
 }
@@ -310,4 +312,26 @@ model Investimento {
 
   @@index([alunoId, status])
   @@map("investimentos")
+}
+
+// Presentear (PRESENTES.md, RN-23..RN-27) - um aluno transfere BosqueCoins do
+// proprio saldo ATUAL para outro aluno, instantaneamente (sem aprovacao).
+// Deliberadamente NAO mexe no saldo ACUMULADO de nenhum dos dois (RN-25): se
+// mexesse, dois alunos poderiam se presentear de ida e volta pra sempre e
+// inflar o acumulado - a metrica de prestigio usada em rankings/extratos -
+// sem merito. Ver comentarios em presenteService.ts.
+model Presente {
+  id             String   @id @default(uuid())
+  remetenteId    String   @map("remetente_id")
+  destinatarioId String   @map("destinatario_id")
+  valor          Int // sempre = VALOR_PRESENTE (10), fixo no backend - RN-24
+  mensagem       String? // recadinho opcional junto do presente (<= 60 chars)
+  criadoEm       DateTime @default(now()) @map("criado_em")
+
+  remetente    Usuario @relation("PresentesEnviados", fields: [remetenteId], references: [id])
+  destinatario Usuario @relation("PresentesRecebidos", fields: [destinatarioId], references: [id])
+
+  @@index([remetenteId])
+  @@index([destinatarioId])
+  @@map("presentes")
 }
