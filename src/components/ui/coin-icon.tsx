@@ -1,19 +1,22 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-/** Icone de moeda consistente do BosqueCoins (secao 10), usado em toda a interface. */
+/**
+ * Icone da moeda BosqueCoins (secao 10), usado em toda a interface. E o MESMO
+ * simbolo do favicon / icone do PWA (public/icons/icon-192.png) - manter os
+ * dois em sincronia: trocar o PNG troca a moeda em todo lugar.
+ * O drop-shadow leve mantem o simbolo legivel tambem sobre os cards de saldo
+ * (fundo verde), ja que o PNG tem fundo transparente.
+ */
 export function CoinIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={cn("h-5 w-5", className)} aria-hidden="true">
-      <circle cx="12" cy="12" r="10" fill="url(#coin-gradient)" stroke="#15803D" strokeWidth="1" />
-      <text x="12" y="16" textAnchor="middle" fontSize="11" fontWeight="700" fill="#052e16">
-        B
-      </text>
-      <defs>
-        <linearGradient id="coin-gradient" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#4ADE80" />
-          <stop offset="1" stopColor="#16A34A" />
-        </linearGradient>
-      </defs>
-    </svg>
+    <Image
+      src="/icons/icon-192.png"
+      alt=""
+      width={20}
+      height={20}
+      aria-hidden="true"
+      className={cn("inline-block h-5 w-5 object-contain drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.25)]", className)}
+    />
   );
 }
