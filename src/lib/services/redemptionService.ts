@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/auth/server";
-import { itemPermiteEscopo } from "@/lib/services/regras";
+import { itemPermiteEscopo, validarDebitoNaoNegativo } from "@/lib/services/regras";
 import { getAnoLetivoAtivo, ehPecDaTurma } from "@/lib/services/pointsService";
 
 export interface SolicitarResgateInput {
@@ -14,6 +14,14 @@ export interface SolicitarResgateInput {
 /**
  * Registra o pedido como `pendente`. Nao debita nada ainda (a especificacao
  * e explicita: "o saldo so e debitado na aprovacao" - secao 4.4).
+ *
+ * O saldo suficiente e SEMPRE reconferido na aprovacao (resolverResgate,
+ * RN-06), de forma atomica - entao um pedido sem saldo nunca vira entrega.
+ * Ainda assim, para o escopo INDIVIDUAL barramos ja no pedido: o saldo do
+ * aluno e conhecido agora e nao vai crescer sozinho, entao deixar solicitar
+ * so serviria para encher a fila do PEC e dar falsa esperanca ("aguarde a
+ * aprovacao"). Para o escopo TURMA nao barramos aqui de proposito - o saldo
+ * coletivo e dinamico e pode subir entre o pedido e a aprovacao.
  */
 export async function solicitarResgate(input: SolicitarResgateInput) {
   const item = await prisma.itemCatalogo.findUnique({ where: { id: input.itemId } });
@@ -31,6 +39,13 @@ export async function solicitarResgate(input: SolicitarResgateInput) {
 
   if (input.escopo === "individual") {
     if (!input.alunoId) throw new ApiError(400, "alunoId e obrigatorio para resgate individual.");
+
+    const aluno = await prisma.usuario.findUnique({ where: { id: input.alunoId }, select: { saldoAtual: true } });
+    if (!aluno) throw new ApiError(404, "Aluno nao encontrado.");
+    const saldoCheck = validarDebitoNaoNegativo(aluno.saldoAtual, item.custo);
+    if (!saldoCheck.valido) {
+      throw new ApiError(400, `Saldo insuficiente para resgatar este item (custa ${item.custo}, voce tem ${aluno.saldoAtual}).`);
+    }
   } else {
     if (!input.turmaId) throw new ApiError(400, "turmaId e obrigatorio para resgate de turma.");
   }

@@ -33,6 +33,7 @@ export default function PremiosPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [turmaId, setTurmaId] = useState<string>("");
   const [turmasPec, setTurmasPec] = useState<{ id: string; nome: string }[]>([]);
+  const [saldoAluno, setSaldoAluno] = useState<number | null>(null);
 
   useEffect(() => {
     if (!papel) return;
@@ -40,6 +41,13 @@ export default function PremiosPage() {
       .then((r) => r.json())
       .then(setItens)
       .finally(() => setCarregando(false));
+
+    if (papel === "aluno") {
+      fetch("/api/dashboard/rankings")
+        .then((r) => r.json())
+        .then((d) => setSaldoAluno(d?.contextoAluno?.saldoPessoalAtual ?? 0))
+        .catch(() => setSaldoAluno(null));
+    }
 
     if (papel !== "aluno") {
       fetch("/api/pec/turmas")
@@ -69,6 +77,11 @@ export default function PremiosPage() {
     const json = await res.json();
     setFeedback(res.ok ? "Resgate solicitado! Aguarde a aprovação." : json.erro ?? "Não foi possível solicitar o resgate.");
   }
+
+  // Só para o aluno: um item que custa mais do que ele tem não pode ser
+  // solicitado (o backend também barra - ver solicitarResgate).
+  const semSaldoPara = (item: ItemCatalogo) =>
+    papel === "aluno" && saldoAluno !== null && item.custo > saldoAluno;
 
   return (
     <div className="space-y-4">
@@ -109,8 +122,13 @@ export default function PremiosPage() {
               </span>
               {item.quantidadeDisponivel !== null && <Badge variant="warning">{item.quantidadeDisponivel} rest.</Badge>}
             </div>
-            <Button size="sm" className="mt-2 w-full" onClick={() => resgatar(item)}>
-              Resgatar
+            <Button
+              size="sm"
+              className="mt-2 w-full"
+              disabled={semSaldoPara(item)}
+              onClick={() => resgatar(item)}
+            >
+              {semSaldoPara(item) ? "Saldo insuficiente" : "Resgatar"}
             </Button>
           </Card>
         ))}

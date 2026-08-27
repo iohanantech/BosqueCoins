@@ -73,10 +73,33 @@ describe("RN-04 - resgate individual isolado", () => {
   });
 });
 
-describe("RN-06 - saldo nunca negativo", () => {
-  it("aprovar resgate individual que deixaria saldo negativo falha e nao altera nada", async () => {
-    const { alunoA1, admin } = await criarFixtureBase();
+describe("Solicitar resgate individual sem saldo e barrado JA no pedido", () => {
+  it("aluno com saldo 0 nao consegue nem solicitar um item que custa 20 - nenhum resgate e criado", async () => {
+    const { alunoA1 } = await criarFixtureBase();
     // Aluno comeca com saldo 0 - nenhum credito.
+
+    const item = await criarItemIndividual(20);
+    await expect(
+      solicitarResgate({ itemId: item.id, escopo: "individual", alunoId: alunoA1.id, solicitanteId: alunoA1.id })
+    ).rejects.toMatchObject({ status: 400 });
+
+    expect(await prisma.resgate.count()).toBe(0);
+  });
+});
+
+describe("RN-06 - saldo nunca negativo", () => {
+  it("aprovar resgate individual quando o saldo caiu DEPOIS do pedido falha e nao altera nada", async () => {
+    const { alunoA1, admin, turmaA, professorPec } = await criarFixtureBase();
+
+    // Aluno tem saldo suficiente no momento do pedido...
+    await distribuirPontos({
+      turmaId: turmaA.id,
+      alunoIds: [alunoA1.id],
+      valor: 20,
+      motivo: "Base",
+      autorId: professorPec.id,
+      autorPapel: "professor",
+    });
 
     const item = await criarItemIndividual(20);
     const resgate = await solicitarResgate({
@@ -85,6 +108,9 @@ describe("RN-06 - saldo nunca negativo", () => {
       alunoId: alunoA1.id,
       solicitanteId: alunoA1.id,
     });
+
+    // ...mas gasta em outra coisa antes de a aprovacao acontecer.
+    await prisma.usuario.update({ where: { id: alunoA1.id }, data: { saldoAtual: 0 } });
 
     await expect(
       resolverResgate({

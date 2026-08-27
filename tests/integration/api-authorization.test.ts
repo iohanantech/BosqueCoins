@@ -45,6 +45,8 @@ describe("RN-08 - privacidade do aluno (via API)", () => {
     const item = await prisma.itemCatalogo.create({
       data: { nome: "Caneca", descricao: "x", custo: 10, categoria: "Brindes", escopo: "individual" },
     });
+    // Precisa ter saldo pra pelo menos SOLICITAR (barrado ja no pedido agora).
+    await prisma.usuario.update({ where: { id: alunoA1.id }, data: { saldoAtual: 50 } });
 
     logarComo(alunoA1, "aluno");
     const { POST } = await import("@/app/api/redemptions/route");
