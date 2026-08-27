@@ -2,10 +2,12 @@ import { describe, it, expect } from "vitest";
 import { prisma } from "./setup";
 import { criarFixtureBase } from "./fixtures";
 import { distribuirPontos } from "@/lib/services/pointsService";
-import { investir, resgatarInvestimento, resumoInvestimentos } from "@/lib/services/investmentService";
+import { investir, resgatarInvestimento, resumoInvestimentos, listarInvestimentos } from "@/lib/services/investmentService";
 import { calcularValorComJuros } from "@/lib/services/regras";
 import { TAXAS_MENSAIS } from "@/lib/config/taxasInvestimento";
 import { ApiError } from "@/lib/auth/server";
+
+const DIA = 24 * 60 * 60 * 1000;
 
 async function darSaldo(alunoId: string, turmaId: string, professorId: string, valor: number) {
   await distribuirPontos({
@@ -198,5 +200,59 @@ describe("Doação (Dízimo/Lar do Idoso) - irreversível, sem placar coletivo",
     const resumo = await resumoInvestimentos(alunoA1.id);
     expect(resumo.totalColetivoInvestido).toBe(20);
     expect(resumo.totalDoado).toBe(20); // 15 + 5
+  });
+});
+
+describe("RN-28 - carência de resgate por tipo (poupança 0, FII 7, Tesouro 15, CDB 30)", () => {
+  it("poupança pode ser resgatada no mesmo dia (carência 0)", async () => {
+    const { alunoA1, turmaA, professorPec } = await criarFixtureBase();
+    await darSaldo(alunoA1.id, turmaA.id, professorPec.id, 50);
+
+    const inv = await investir({ alunoId: alunoA1.id, tipo: "poupanca", valor: 20 });
+    await expect(resgatarInvestimento({ investimentoId: (inv as { id: string }).id, alunoId: alunoA1.id })).resolves.toBeTruthy();
+  });
+
+  it("CDB no dia 0 é bloqueado; após 30 dias aplicado, resgata", async () => {
+    const { alunoA1, turmaA, professorPec } = await criarFixtureBase();
+    await darSaldo(alunoA1.id, turmaA.id, professorPec.id, 50);
+
+    const inv = await investir({ alunoId: alunoA1.id, tipo: "cdb", valor: 20 });
+    const id = (inv as { id: string }).id;
+
+    await expect(resgatarInvestimento({ investimentoId: id, alunoId: alunoA1.id })).rejects.toMatchObject({ status: 400 });
+    // continua ativo, nada creditado
+    expect((await prisma.investimento.findUniqueOrThrow({ where: { id } })).status).toBe("ativo");
+    expect((await prisma.usuario.findUniqueOrThrow({ where: { id: alunoA1.id } })).saldoAtual).toBe(30);
+
+    await prisma.investimento.update({ where: { id }, data: { dataInvestimento: new Date(Date.now() - 30 * DIA) } });
+    await expect(resgatarInvestimento({ investimentoId: id, alunoId: alunoA1.id })).resolves.toBeTruthy();
+  });
+
+  it("FII: bloqueado no dia 3, liberado no dia 7", async () => {
+    const { alunoA1, turmaA, professorPec } = await criarFixtureBase();
+    await darSaldo(alunoA1.id, turmaA.id, professorPec.id, 50);
+
+    const inv = await investir({ alunoId: alunoA1.id, tipo: "fundo_imobiliario", valor: 20 });
+    const id = (inv as { id: string }).id;
+
+    await prisma.investimento.update({ where: { id }, data: { dataInvestimento: new Date(Date.now() - 3 * DIA) } });
+    await expect(resgatarInvestimento({ investimentoId: id, alunoId: alunoA1.id })).rejects.toMatchObject({ status: 400 });
+
+    await prisma.investimento.update({ where: { id }, data: { dataInvestimento: new Date(Date.now() - 7 * DIA) } });
+    await expect(resgatarInvestimento({ investimentoId: id, alunoId: alunoA1.id })).resolves.toBeTruthy();
+  });
+
+  it("listarInvestimentos expõe diasRestantesCarencia (Tesouro no dia 5 -> faltam 10)", async () => {
+    const { alunoA1, turmaA, professorPec } = await criarFixtureBase();
+    await darSaldo(alunoA1.id, turmaA.id, professorPec.id, 50);
+
+    const inv = await investir({ alunoId: alunoA1.id, tipo: "tesouro_direto", valor: 20 });
+    const id = (inv as { id: string }).id;
+    await prisma.investimento.update({ where: { id }, data: { dataInvestimento: new Date(Date.now() - 5 * DIA) } });
+
+    const lista = await listarInvestimentos(alunoA1.id);
+    const item = lista.find((i) => i.id === id)!;
+    expect(item.carenciaDias).toBe(15);
+    expect(item.diasRestantesCarencia).toBe(10);
   });
 });

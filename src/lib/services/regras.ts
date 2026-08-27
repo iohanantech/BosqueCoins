@@ -249,6 +249,22 @@ export function validarPodeResgatar(
 }
 
 /**
+ * RN-28 — carencia de resgate: o investimento so pode ser resgatado depois de
+ * ficar aplicado `carenciaDias` dias corridos (0 = a qualquer hora). Os
+ * numeros por tipo vivem em src/lib/config/taxasInvestimento.ts.
+ */
+export function validarCarenciaResgate(diasDecorridos: number, carenciaDias: number): ValidacaoResultado {
+  const faltam = carenciaDias - diasDecorridos;
+  if (faltam > 0) {
+    return {
+      valido: false,
+      erro: `Este investimento só pode ser resgatado após ${carenciaDias} dias aplicado (faltam ${faltam}).`,
+    };
+  }
+  return { valido: true };
+}
+
+/**
  * RN-18 — juros compostos diarios sobre o principal, a partir da taxa MENSAL
  * media do tipo (congelada no momento do investimento - taxasInvestimento.ts).
  * A taxa e ao mes; convertemos para diaria assumindo mes de 30 dias, entao

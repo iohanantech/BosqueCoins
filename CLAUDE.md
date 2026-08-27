@@ -2,6 +2,14 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
+## Continuação — Fase 14 (carência de resgate por tipo de investimento — RN-28)
+
+Cada investimento reversível agora tem um prazo mínimo de aplicação antes de poder ser resgatado: **poupança 0** (a qualquer hora), **Fundo Imobiliário 7 dias** (1x/semana), **Tesouro Direto 15 dias**, **CDB 30 dias** (1x/mês). Números em `CARENCIA_RESGATE_DIAS` (`taxasInvestimento.ts`), ao lado de `TAXAS_MENSAIS`. **Não** é congelada no momento do investimento (diferente da taxa, RN-18) — é regra do jogo, mudar o config vale pra todos os ativos; documentado no próprio config.
+
+`regras.ts::validarCarenciaResgate(diasDecorridos, carenciaDias)` (puro). `resgatarInvestimento` chama depois de `validarPodeResgatar` e antes de mexer em saldo — 400 com "faltam N" se não cumpriu. `listarInvestimentos` passou a devolver `carenciaDias` e `diasRestantesCarencia` por investimento ativo; `/investir` usa isso pra, no card do investimento ativo, trocar o botão "Resgatar" por "Resgate em Nd" enquanto trava, e mostra a carência em cada opção (linha "🔓 resgate a partir de N dias" + no texto de `instrucoes-investimento.tsx`, seção "Como investir bem"). A virtude "Diligência e paciência" ganhou uma frase citando o prazo.
+
+Teste de corrida de resgate (`concorrencia.test.ts`) trocado de CDB→poupança (carência 0) pra continuar exercitando a corrida sem esbarrar no novo prazo. `typecheck`/`lint`/`test`(50)/integração(99) limpos.
+
 ## Continuação — Fase 13 (taxas de investimento ao mês)
 
 As taxas dos investimentos reversíveis (CDB 11%, Poupança 6%, Fundo Imobiliário 9%, Tesouro Direto 10,5%) agora são **ao mês**, não ao ano. Motivo: num uso de escola (semanas), a taxa anual composta diária mal movia o inteiro do saldo — BosqueCoins não têm fração e o `Math.round` de `calcularValorComJuros` só sobe de 1 quando o juro passa de 0,5, o que levava dezenas de dias corridos. Ao mês, o rendimento aparece em poucos dias.
@@ -186,7 +194,7 @@ Separação deliberada entre **regras puras** e **I/O**, para permitir testar a 
 - **`anoLetivoService.ts`** — encerramento do ano letivo (seção 5).
 - **`investmentService.ts`** — `investir`/`resgatarInvestimento`/`listarInvestimentos`/`resumoInvestimentos` (RN-15..RN-21, ver INVESTIMENTOS.md).
 
-## Regras de negócio (RN-01 a RN-27)
+## Regras de negócio (RN-01 a RN-28)
 
 Todas implementadas e comentadas no código-fonte, no arquivo/função correspondente. Resumo de onde encontrar cada uma:
 
@@ -219,6 +227,7 @@ Todas implementadas e comentadas no código-fonte, no arquivo/função correspon
 | RN-25 Presentear só move o saldo ATUAL, nunca o ACUMULADO | `presenteService.ts::enviarPresente` (comentário explica o porquê: fecha a brecha de dois alunos inflarem o acumulado se presenteando de ida e volta) — remetente `saldoAtual -= 10`, destinatário `saldoAtual += 10`, nenhum `saldoAcumulado` tocado |
 | RN-26 Transferência instantânea, saldo suficiente dentro da transação | `presenteService.ts::enviarPresente` — sem status/aprovação; débito condicional atômico (`updateMany where saldoAtual >= valor`) dentro de `prisma.$transaction` (RN-02/RN-06) |
 | RN-27 Limite semanal de 10 BosqueCoins enviados por remetente (janela móvel de 7 dias) | `regras.ts::validarLimiteSemanalPresentes` (soma valores, não conta presentes); `presenteService.ts::enviarPresente` re-soma dentro da transação; `statusPresenteSemana` + `GET /api/presentes` alimentam o aviso prévio na UI |
+| RN-28 Carência de resgate por tipo de investimento reversível | `src/lib/config/taxasInvestimento.ts::CARENCIA_RESGATE_DIAS` (poupança 0, FII 7, Tesouro 15, CDB 30 — **não** congelada no investimento, diferente da taxa/RN-18); `regras.ts::validarCarenciaResgate`; `investmentService.ts::resgatarInvestimento` bloqueia antes do prazo, `listarInvestimentos` expõe `diasRestantesCarencia` pra UI (`/investir` desabilita "Resgatar" e mostra "Resgate em Nd") |
 
 ## Pressupostos assumidos (seção 12 da especificação)
 

@@ -18,15 +18,16 @@ interface OpcaoDestino {
   irreversivel: boolean;
   doacao?: boolean; // troca o verbo "investir" por "doar" na UI - mesmo fluxo, so a palavra muda
   taxaMensal?: number;
+  carencia?: string; // RN-28 - quando o resgate fica liberado
 }
 
 const OPCOES: OpcaoDestino[] = [
   { tipo: "casa", nome: "Casa", descricao: "Vira ponto pra sempre no placar da sua Casa.", irreversivel: true },
   { tipo: "turma", nome: "Turma", descricao: "Vira ponto pra sempre no placar da sua turma.", irreversivel: true },
-  { tipo: "cdb", nome: "CDB", descricao: "Rende juros enquanto aplicado. Pode resgatar quando quiser.", irreversivel: false, taxaMensal: 0.11 },
-  { tipo: "poupanca", nome: "Poupança", descricao: "Rende um pouco menos, sempre disponível.", irreversivel: false, taxaMensal: 0.06 },
-  { tipo: "fundo_imobiliario", nome: "Fundo Imobiliário", descricao: "Rende parecido com \"aluguel\".", irreversivel: false, taxaMensal: 0.09 },
-  { tipo: "tesouro_direto", nome: "Tesouro Direto", descricao: "Rendimento constante, mais \"seguro\".", irreversivel: false, taxaMensal: 0.105 },
+  { tipo: "cdb", nome: "CDB", descricao: "Rende mais que a poupança. Resgate liberado 1x por mês (após 30 dias).", irreversivel: false, taxaMensal: 0.11, carencia: "resgate a partir de 30 dias" },
+  { tipo: "poupanca", nome: "Poupança", descricao: "Rende um pouco menos, mas resgata a qualquer hora.", irreversivel: false, taxaMensal: 0.06, carencia: "resgate a qualquer hora" },
+  { tipo: "fundo_imobiliario", nome: "Fundo Imobiliário", descricao: "Rende parecido com \"aluguel\". Resgate 1x por semana (após 7 dias).", irreversivel: false, taxaMensal: 0.09, carencia: "resgate a partir de 7 dias" },
+  { tipo: "tesouro_direto", nome: "Tesouro Direto", descricao: "Rendimento constante, mais \"seguro\". Resgate a cada 15 dias.", irreversivel: false, taxaMensal: 0.105, carencia: "resgate a partir de 15 dias" },
   { tipo: "dizimo", nome: "Dízimo (Igreja)", descricao: "Uma doação pra igreja. Sem volta — um ato de generosidade.", irreversivel: true, doacao: true },
   { tipo: "lar_idoso", nome: "Lar do Idoso", descricao: "Uma doação pro lar dos idosos. Sem volta — um ato de generosidade.", irreversivel: true, doacao: true },
 ];
@@ -40,6 +41,7 @@ interface Investimento {
   valorResgatado: number | null;
   dataInvestimento: string;
   dataResgate: string | null;
+  diasRestantesCarencia?: number; // RN-28 - 0 = resgate liberado
 }
 
 export default function InvestirPage() {
@@ -156,6 +158,9 @@ export default function InvestirPage() {
                 )}
               </div>
               <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{o.descricao}</p>
+              {!o.irreversivel && o.carencia && (
+                <p className="mt-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">🔓 {o.carencia}</p>
+              )}
             </button>
           ))}
         </div>
@@ -226,9 +231,15 @@ export default function InvestirPage() {
                     {inv.valorPrincipal} investidos · agora vale {inv.valorAtual}
                   </p>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => resgatar(inv.id)}>
-                  Resgatar
-                </Button>
+                {(inv.diasRestantesCarencia ?? 0) > 0 ? (
+                  <span className="shrink-0 text-xs text-neutral-400">
+                    Resgate em {inv.diasRestantesCarencia}d
+                  </span>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => resgatar(inv.id)}>
+                    Resgatar
+                  </Button>
+                )}
               </li>
             ))}
           </ul>

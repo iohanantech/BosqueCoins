@@ -19,10 +19,10 @@ import { cn } from "@/lib/utils";
 const OPCOES = [
   { titulo: "Casa", texto: "O que você investe aqui vira ponto pra sempre no placar da sua Casa. Não tem volta — é um presente pra galera." },
   { titulo: "Turma", texto: "Igual à Casa, mas pra sua sala. Também não tem volta: é você escolhendo o time antes de si mesmo." },
-  { titulo: "CDB", texto: "Um jeito de guardar BosqueCoins rendendo um extra todo dia. Pode resgatar quando quiser, com o que rendeu até ali." },
-  { titulo: "Poupança", texto: "Rende um pouco menos que o CDB, mas é o clássico: simples, direto, sempre disponível." },
-  { titulo: "Fundo Imobiliário", texto: "Rende parecido com \"aluguel\" dos seus BosqueCoins. Também pode resgatar quando quiser." },
-  { titulo: "Tesouro Direto", texto: "Um investimento mais \"seguro\", rendendo de forma constante enquanto ele estiver aplicado." },
+  { titulo: "CDB", texto: "Rende mais que a poupança, um pouquinho todo dia. Em troca, o dinheiro fica preso um tempo: o resgate só libera depois de 30 dias aplicado (uma vez por mês)." },
+  { titulo: "Poupança", texto: "Rende um pouco menos que o CDB, mas é o mais livre de todos: você resgata a qualquer hora, sem esperar." },
+  { titulo: "Fundo Imobiliário", texto: "Rende parecido com \"aluguel\" dos seus BosqueCoins. O resgate libera depois de 7 dias aplicado (uma vez por semana)." },
+  { titulo: "Tesouro Direto", texto: "Um investimento mais \"seguro\", rendendo de forma constante. O resgate libera a cada 15 dias." },
   { titulo: "Dízimo (Igreja)", texto: "Uma doação pra igreja. Não tem volta — é um presente, não um investimento no sentido de esperar algo de volta." },
   { titulo: "Lar do Idoso", texto: "Uma doação pro lar dos idosos. Também não tem volta: é ajudar quem precisa, sem esperar nada em troca." },
 ];
@@ -40,7 +40,7 @@ const VIRTUDES = [
   },
   {
     titulo: "Diligência e paciência",
-    texto: "Os juros só aparecem pra quem espera. Resultado bom vem de persistir, não de atalho — como a formiga, que junta aos poucos e chega lá.",
+    texto: "Os juros só aparecem pra quem espera. Cada investimento tem um tempo mínimo antes de poder resgatar (a poupança nenhum, o CDB um mês) — de propósito: resultado bom vem de persistir, não de atalho, como a formiga que junta aos poucos e chega lá.",
     referencia: "Provérbios 6:6-8; 13:11",
   },
   {

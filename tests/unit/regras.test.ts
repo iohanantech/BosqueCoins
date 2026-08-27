@@ -20,6 +20,7 @@ import {
   ehInvestimentoColetivo,
   ehDoacao,
   validarPodeResgatar,
+  validarCarenciaResgate,
   calcularDeltaInvestimentoColetivo,
   validarLimiteSemanalPresentes,
   VALOR_PRESENTE,
@@ -236,6 +237,26 @@ describe("RN-13 — professor fora dos rankings", () => {
     const filtrado = excluirProfessoresDoRanking(itens);
     expect(filtrado).toHaveLength(2);
     expect(filtrado.some((i) => i.destinoTipo === "professor")).toBe(false);
+  });
+});
+
+describe("RN-28 — carência de resgate", () => {
+  it("carência 0 (poupança) libera o resgate imediatamente", () => {
+    expect(validarCarenciaResgate(0, 0).valido).toBe(true);
+  });
+
+  it("antes de cumprir a carência, bloqueia e informa quantos dias faltam", () => {
+    const r = validarCarenciaResgate(3, 7); // FII: faltam 4
+    expect(r.valido).toBe(false);
+    expect(r.erro).toContain("faltam 4");
+  });
+
+  it("exatamente no dia da carência já libera", () => {
+    expect(validarCarenciaResgate(30, 30).valido).toBe(true); // CDB
+  });
+
+  it("depois da carência continua liberado", () => {
+    expect(validarCarenciaResgate(20, 15).valido).toBe(true); // Tesouro
   });
 });
 

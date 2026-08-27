@@ -28,3 +28,29 @@ export const NOMES_INVESTIMENTO: Record<TipoInvestimentoReversivel, string> = {
   fundo_imobiliario: "Fundo Imobiliário",
   tesouro_direto: "Tesouro Direto",
 };
+
+/**
+ * Carencia de resgate (RN-28): quantos dias corridos o investimento precisa
+ * ficar aplicado antes de poder ser resgatado.
+ *  - poupanca: 0  -> a qualquer hora
+ *  - fundo_imobiliario: 7  -> "uma vez por semana"
+ *  - tesouro_direto: 15  -> "a cada 15 dias"
+ *  - cdb: 30  -> "uma vez ao mes"
+ * Diferente da TAXA (RN-18), a carencia NAO e congelada no momento do
+ * investimento: e uma regra do jogo. Mudar aqui vale para todos os
+ * investimentos ativos.
+ */
+export const CARENCIA_RESGATE_DIAS: Record<TipoInvestimentoReversivel, number> = {
+  poupanca: 0,
+  fundo_imobiliario: 7,
+  tesouro_direto: 15,
+  cdb: 30,
+};
+
+/** Frase curta da carencia para a UI ("Como investir bem" e cards de /investir). */
+export const CARENCIA_RESGATE_LABEL: Record<TipoInvestimentoReversivel, string> = {
+  poupanca: "resgate a qualquer hora",
+  fundo_imobiliario: "resgate a partir de 7 dias",
+  tesouro_direto: "resgate a partir de 15 dias",
+  cdb: "resgate a partir de 30 dias",
+};

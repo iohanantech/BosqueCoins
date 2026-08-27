@@ -55,7 +55,9 @@ describe("Corrida - resgatar investimento (achado crítico 02)", () => {
     const { alunoA1, turmaA, professorPec } = await criarFixtureBase();
     await darSaldo(alunoA1.id, turmaA.id, professorPec.id, 5);
 
-    const investimento = await investir({ alunoId: alunoA1.id, tipo: "cdb", valor: 5 });
+    // Poupanca: carencia 0 (RN-28), entao o resgate pode acontecer no mesmo
+    // instante - o que este teste precisa pra provar a corrida do resgate.
+    const investimento = await investir({ alunoId: alunoA1.id, tipo: "poupanca", valor: 5 });
     const investimentoId = (investimento as { id: string }).id;
 
     const resultados = await Promise.allSettled(
@@ -69,7 +71,7 @@ describe("Corrida - resgatar investimento (achado crítico 02)", () => {
     expect(aluno.saldoAtual).toBe(5); // devolveu exatamente o principal 1 vez (sem juros relevantes em poucos ms)
 
     const transacoesDeCredito = await prisma.transacao.count({
-      where: { destinoId: alunoA1.id, tipo: "credito", motivo: { startsWith: "Resgate de cdb" } },
+      where: { destinoId: alunoA1.id, tipo: "credito", motivo: { startsWith: "Resgate de poupanca" } },
     });
     expect(transacoesDeCredito).toBe(1); // o log de auditoria tambem prova que so aconteceu 1 vez
   });

@@ -6,11 +6,14 @@ import {
   ehInvestimentoReversivel,
   ehDoacao,
   validarPodeResgatar,
+  validarCarenciaResgate,
   calcularDeltaInvestimentoColetivo,
   calcularValorComJuros,
   type TipoInvestimento,
 } from "@/lib/services/regras";
-import { TAXAS_MENSAIS, type TipoInvestimentoReversivel } from "@/lib/config/taxasInvestimento";
+import { TAXAS_MENSAIS, CARENCIA_RESGATE_DIAS, type TipoInvestimentoReversivel } from "@/lib/config/taxasInvestimento";
+
+const carenciaDe = (tipo: TipoInvestimento) => CARENCIA_RESGATE_DIAS[tipo as TipoInvestimentoReversivel] ?? 0;
 import { getAnoLetivoAtivo } from "@/lib/services/pointsService";
 
 type TipoDoacao = "dizimo" | "lar_idoso";
@@ -260,6 +263,11 @@ export async function resgatarInvestimento(input: ResgatarInvestimentoInput) {
   if (!podeResgatar.valido) throw new ApiError(400, podeResgatar.erro!);
 
   const diasDecorridos = Math.floor((Date.now() - investimento.dataInvestimento.getTime()) / (1000 * 60 * 60 * 24));
+
+  // RN-28: carencia de resgate por tipo (poupanca 0, FII 7, Tesouro 15, CDB 30).
+  const carenciaCheck = validarCarenciaResgate(diasDecorridos, carenciaDe(investimento.tipo));
+  if (!carenciaCheck.valido) throw new ApiError(400, carenciaCheck.erro!);
+
   const valorComJuros = calcularValorComJuros(investimento.valorPrincipal, investimento.taxaMensal, diasDecorridos);
   const juros = valorComJuros - investimento.valorPrincipal;
 
@@ -313,9 +321,18 @@ export async function listarInvestimentos(alunoId: string) {
   });
 
   return investimentos.map((inv) => {
-    if (inv.status !== "ativo") return { ...inv, valorAtual: inv.valorResgatado ?? inv.valorPrincipal };
+    const carenciaDias = carenciaDe(inv.tipo);
+    if (inv.status !== "ativo") {
+      return { ...inv, valorAtual: inv.valorResgatado ?? inv.valorPrincipal, carenciaDias, diasRestantesCarencia: 0 };
+    }
     const diasDecorridos = Math.floor((Date.now() - inv.dataInvestimento.getTime()) / (1000 * 60 * 60 * 24));
-    return { ...inv, valorAtual: calcularValorComJuros(inv.valorPrincipal, inv.taxaMensal, diasDecorridos) };
+    return {
+      ...inv,
+      valorAtual: calcularValorComJuros(inv.valorPrincipal, inv.taxaMensal, diasDecorridos),
+      carenciaDias,
+      // RN-28: quantos dias ainda faltam pra liberar o resgate (0 = ja pode).
+      diasRestantesCarencia: Math.max(0, carenciaDias - diasDecorridos),
+    };
   });
 }
 
