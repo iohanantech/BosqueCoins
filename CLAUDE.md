@@ -2,6 +2,14 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
+## Continuação — Fase 11 (testes de integração dos CRUDs administrativos)
+
+Item que ficava pendente desde a Fase 8 ("próximo passo sugerido"): `tests/integration/adminCrud.test.ts` (19 testes novos) cobre agora, contra Postgres real, os 5 CRUDs administrativos que só tinham verificação manual — Casas, Turmas (+ matrícula/remanejo de alunos), cadastro de professor (+ marcar PEC), cadastro de administrador (restrito ao super admin) e editar/excluir catálogo. Cobre em cada um: quem não é admin recebe 403; nome/e-mail duplicado é rejeitado; o caminho feliz funciona e persiste certinho no banco. Casos específicos: RN-10 (domínio) na criação de professor/admin; matricular um aluno já matriculado noutra turma o remaneja em vez de duplicar; excluir item de catálogo com resgate no histórico é bloqueado; super admin não pode remover a si mesmo.
+
+Precisou de `SUPER_ADMIN_EMAIL` em `.env.test`/`.env.test.example`, batendo com o e-mail do usuário `admin` criado em `fixtures.ts`, já que `requireSuperAdmin()` falha fechado sem essa env var (ver Fase 8, achado "SUPER_ADMIN_EMAIL sem fallback").
+
+Suíte de integração completa: 70 testes, todos passando. `typecheck`/`lint`/`test`(41) também limpos.
+
 ## Continuação — Fase 10 ("Ver a visão do aluno" para o admin)
 
 Nova tela `/admin/visao-aluno`: admin escolhe um aluno num seletor e vê o que ele veria — saldo/posição no ranking, resumo e lista de investimentos (ativos + histórico), extrato completo, resgates do catálogo. **Somente leitura, de propósito**: nenhum botão de ação (investir, resgatar, etc.) — é uma tela de consulta pro admin entender o que o aluno está vendo, não um "login como" nem um jeito de agir em nome dele.
@@ -30,7 +38,7 @@ Implementado e commitado nesta sessão, todo `typecheck`/`lint`/testes unitário
 6. **Cadastro individual de administrador** — nova tela `/admin/administradores` (link no hub `/admin`), mesmo padrão do cadastro de professor: `POST /api/admin/administradores`, valida domínio institucional e duplicidade.
 7. **Editar e excluir itens do catálogo** — `/admin/catalogo` ganhou um formulário de edição completo por item (antes só dava pra ativar/desativar) e um botão de excluir. `DELETE /api/catalog/:id` só remove o item se ele nunca foi resgatado (verifica `Resgate.count`); se já tem resgates no histórico, bloqueia com 400 e pede pra desativar em vez de excluir — evita quebrar o histórico de resgates.
 
-Próximo passo sugerido: adicionar testes de integração para os CRUDs administrativos (Casas, Turmas/matrícula, Professores, Administradores, Catálogo), seguindo o padrão de `tests/integration/api-authorization.test.ts`.
+~~Próximo passo sugerido: adicionar testes de integração para os CRUDs administrativos~~ — feito na Fase 11 (`tests/integration/adminCrud.test.ts`).
 
 ## Continuação — Fase 8 (auditoria de segurança + correções)
 
