@@ -2,8 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db";
-
-const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN ?? "bosquemananciais.org.br";
+import { ALLOWED_EMAIL_DOMAIN, emailDominioPermitido } from "@/lib/auth/dominioEmail";
 
 /**
  * O provider de dev existe SÓ para permitir testar os 4 papéis sem depender
@@ -31,10 +30,12 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
       // 'hd' e so uma camada de UX do lado do Google - NUNCA a fonte da verdade
-      // (secao 3). A validacao real acontece no callback signIn abaixo.
+      // (secao 3). A validacao real acontece no callback signIn abaixo. So faz
+      // sentido quando ha um dominio institucional configurado; sem ele, o
+      // usuario escolhe qualquer conta Google dele (inclusive Gmail).
       authorization: {
         params: {
-          hd: ALLOWED_DOMAIN,
+          ...(ALLOWED_EMAIL_DOMAIN ? { hd: ALLOWED_EMAIL_DOMAIN } : {}),
           prompt: "select_account",
         },
       },
@@ -69,17 +70,19 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     /**
-     * RN-10 — Dominio de e-mail: validado aqui no backend, nunca so no
-     * parametro `hd` do lado do cliente.
-     * Acesso por pre-cadastro: o e-mail precisa ja existir em `usuarios`
-     * (cadastrado pelo admin manualmente ou via planilha) - nao criamos
-     * conta automaticamente no primeiro login.
+     * Acesso por PRE-CADASTRO: o e-mail precisa ja existir em `usuarios`
+     * (cadastrado pelo admin manualmente ou via planilha) e estar ativo -
+     * nao criamos conta automaticamente no primeiro login. Esse e o porteiro
+     * de verdade.
+     * RN-10 (restricao de dominio) e opcional: so barra quando
+     * ALLOWED_EMAIL_DOMAIN esta definido. Sem ele, qualquer dominio (Gmail
+     * etc.) entra, desde que pre-cadastrado.
      */
     async signIn({ user, account }) {
       const email = user.email?.toLowerCase().trim();
       if (!email) return `/login?error=${AUTH_ERROR_CODES.CONTA_NAO_CADASTRADA}`;
 
-      if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+      if (!emailDominioPermitido(email)) {
         return `/login?error=${AUTH_ERROR_CODES.DOMINIO_INVALIDO}`;
       }
 

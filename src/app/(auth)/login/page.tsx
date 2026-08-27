@@ -8,7 +8,7 @@ import { AUTH_ERROR_CODES } from "@/lib/auth/options";
 import Image from "next/image";
 
 const MENSAGENS_ERRO: Record<string, string> = {
-  [AUTH_ERROR_CODES.DOMINIO_INVALIDO]: "Use seu e-mail institucional do colégio (@bosquemananciais.org.br).",
+  [AUTH_ERROR_CODES.DOMINIO_INVALIDO]: "Este e-mail não está autorizado. Use o e-mail que a coordenação cadastrou.",
   [AUTH_ERROR_CODES.CONTA_NAO_CADASTRADA]: "Conta não cadastrada, procure a coordenação.",
   [AUTH_ERROR_CODES.CONTA_INATIVA]: "Sua conta está inativa. Procure a coordenação.",
   Configuration: "Erro de configuração do login. Tente novamente mais tarde.",
@@ -93,7 +93,7 @@ function LoginContent() {
           Entrar com Google
         </Button>
         <p className="mt-4 text-xs text-neutral-400">
-          Acesso restrito a e-mails @bosquemananciais.org.br já cadastrados pela coordenação.
+          Acesso restrito a e-mails já cadastrados pela coordenação.
         </p>
 
         <DevLoginPicker />

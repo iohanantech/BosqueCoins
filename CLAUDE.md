@@ -2,6 +2,16 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
+## Continuação — Fase 16 (RN-10 vira opcional: qualquer domínio, se pré-cadastrado)
+
+A restrição de domínio de e-mail deixou de ser obrigatória. Agora `ALLOWED_EMAIL_DOMAIN`:
+- **definido** (ex.: `bosquemananciais.org.br`): comportamento antigo — só aquele domínio no login e nos cadastros.
+- **vazio / ausente**: qualquer domínio (Gmail, Outlook…) é aceito, **desde que o admin tenha cadastrado aquele e-mail** em `usuarios` e a conta esteja ativa. O pré-cadastro passa a ser o único porteiro.
+
+Sem mais fallback embutido (`?? "bosquemananciais.org.br"` removido de 5 arquivos). Lógica central em `src/lib/auth/dominioEmail.ts::emailDominioPermitido` (lê `process.env` a cada chamada). O `hd` do Google OAuth só é enviado quando há domínio configurado. Textos do `/login` ficaram genéricos ("Acesso restrito a e-mails já cadastrados pela coordenação").
+
+**Para valer em produção**: remover `ALLOWED_EMAIL_DOMAIN` das env vars da Vercel (local o `.env` já foi comentado). `.env.test` mantém o domínio setado de propósito, pra a suíte continuar exercitando o caminho restrito (108 integração). `tests/unit/dominioEmail.test.ts` cobre os dois modos. `typecheck`/`lint`/`test`(53)/integração(108) limpos.
+
 ## Continuação — Fase 15 (auditoria completa: abrir o 1º ano letivo + correções)
 
 Auditoria de todo o sistema em 2026-08-27 (relatório completo publicado como artifact). Corrigido nesta sessão o achado **crítico** e dois **baixos** de origem relacionada:
@@ -234,7 +244,7 @@ Todas implementadas e comentadas no código-fonte, no arquivo/função correspon
 | RN-07 Auditoria imutável | Nenhuma rota de DELETE/UPDATE em `transacoes`/`resgates`/`investimentos` — só criação e transição de status |
 | RN-08 Privacidade do aluno | `src/lib/auth/server.ts::garantirAcessoProprioOuAdmin` |
 | RN-09 Escopo do PEC | `regras.ts::validarEscopoPec`, checado em `pointsService.ts::ehPecDaTurma` antes de ajustes/aprovações |
-| RN-10 Domínio de e-mail | `src/lib/auth/options.ts::signIn` callback |
+| RN-10 Domínio de e-mail (OPCIONAL) | `src/lib/auth/dominioEmail.ts::emailDominioPermitido`, usado no `signIn` callback, nos 3 cadastros admin e no import. **Só barra quando `ALLOWED_EMAIL_DOMAIN` está definido** — vazio/ausente = qualquer domínio (Gmail etc.) entra, desde que pré-cadastrado. O porteiro real é sempre o `usuarios` + `ativo`. |
 | RN-11 Escopo por ano letivo | Toda leitura de `turma_periodos`/`casa_periodos` recebe `anoLetivoId` explícito; nunca há soma cross-year |
 | RN-12 Só admin pontua professor | `regras.ts::validarQuemPontuaProfessor` |
 | RN-13 Professor fora dos rankings | `regras.ts::excluirProfessoresDoRanking`; `rankingService.ts` só lê `turma_periodos`/`casa_periodos`, que nunca recebem incremento de professor |

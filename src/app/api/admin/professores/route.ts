@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePapel, handleApiError, ApiError } from "@/lib/auth/server";
 import { criarProfessorSchema } from "@/lib/validation/schemas";
+import { ALLOWED_EMAIL_DOMAIN, emailDominioPermitido } from "@/lib/auth/dominioEmail";
 import { prisma } from "@/lib/db";
 import { getAnoLetivoAtivo } from "@/lib/services/pointsService";
 
-const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN ?? "bosquemananciais.org.br";
-
 /**
  * POST /api/admin/professores — coordenação cadastra um professor individualmente
- * (RN-10, mesma checagem de domínio do login), com a opção de já marcá-lo como
- * PEC de uma ou mais turmas no ano letivo vigente (RN-09).
+ * (mesma checagem de domínio do login — RN-10, opcional), com a opção de já
+ * marcá-lo como PEC de uma ou mais turmas no ano letivo vigente (RN-09).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -20,8 +19,8 @@ export async function POST(req: NextRequest) {
 
     const { nome, email, turmasPecIds } = parsed.data;
 
-    if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
-      throw new ApiError(400, `O e-mail precisa ser do domínio @${ALLOWED_DOMAIN}.`);
+    if (!emailDominioPermitido(email)) {
+      throw new ApiError(400, `O e-mail precisa ser do domínio @${ALLOWED_EMAIL_DOMAIN}.`);
     }
 
     const existente = await prisma.usuario.findUnique({ where: { email } });

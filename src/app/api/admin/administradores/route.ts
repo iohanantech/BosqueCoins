@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePapel, requireSuperAdmin, ehSuperAdmin, handleApiError, ApiError } from "@/lib/auth/server";
 import { criarAdminSchema } from "@/lib/validation/schemas";
+import { ALLOWED_EMAIL_DOMAIN, emailDominioPermitido } from "@/lib/auth/dominioEmail";
 import { prisma } from "@/lib/db";
 
 /**
@@ -35,10 +36,9 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) throw new ApiError(400, parsed.error.issues[0]?.message ?? "Payload invalido.");
 
     const { nome, email } = parsed.data;
-    const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN ?? "bosquemananciais.org.br";
 
-    if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
-      throw new ApiError(400, `O e-mail precisa ser do domínio @${ALLOWED_DOMAIN}.`);
+    if (!emailDominioPermitido(email)) {
+      throw new ApiError(400, `O e-mail precisa ser do domínio @${ALLOWED_EMAIL_DOMAIN}.`);
     }
 
     const existente = await prisma.usuario.findUnique({ where: { email } });

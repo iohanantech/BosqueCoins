@@ -1,8 +1,8 @@
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/auth/server";
+import { emailDominioPermitido } from "@/lib/auth/dominioEmail";
 
-const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN ?? "bosquemananciais.org.br";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface LinhaPlanilha {
@@ -62,7 +62,7 @@ export async function validarLinhas(linhas: LinhaPlanilha[]): Promise<LinhaValid
 
     if (!EMAIL_REGEX.test(linha.email)) {
       status = "email_malformado";
-    } else if (!linha.email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+    } else if (!emailDominioPermitido(linha.email)) {
       status = "dominio_invalido";
     } else if (emailsVistos.has(linha.email)) {
       status = "email_duplicado_planilha";
