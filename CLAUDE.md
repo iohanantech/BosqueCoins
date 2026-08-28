@@ -2,6 +2,36 @@
 
 Guia de contexto do projeto para quem (humano ou IA) for continuar este trabalho.
 
+---
+
+## RESUMO PARA RETOMAR (atualizado 2026-08-28, commit `8483d0c`)
+
+**O que é.** App Next.js 14 (App Router) + Prisma + Postgres de gamificação escolar do Colégio Bosque dos Mananciais. Alunos ganham "BosqueCoins" de professores, investem/doam/presenteiam, e há placares coletivos de Casas e Salas. Detalhe completo de cada fase de trabalho nas seções "Continuação — Fase N" abaixo (16 fases, mais recente primeiro).
+
+**Estado do código.** Tudo commitado e no ar. Suíte: **53 unit + 108 integração + 15 E2E**, `typecheck`/`lint` limpos. Branch `main`, remote `origin` = `github.com/iohanantech/BosqueCoins` (privado).
+
+**Deploy.** `bosquecoins.vercel.app`, projeto Vercel `bosquecoins` conectado ao GitHub — **todo push no `main` faz deploy automático** de produção. Banco: Neon (Postgres free tier). Login: Google OAuth (+ provider de dev local via `DEV_AUTH_ENABLED`).
+
+**Pendências de configuração na Vercel (o usuário precisa fazer, não é código):**
+1. **Remover `ALLOWED_EMAIL_DOMAIN`** das Environment Variables (Production) + redeploy — sem isso, a Fase 16 (aceitar Gmail pré-cadastrado) não vale em produção.
+2. Conferir que as demais env vars de produção existem (`DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`).
+
+**Bootstrap de um banco novo (Fase 15):** `/admin/ano-letivo` abre o 1º ano letivo quando não existe nenhum; sem ano letivo ativo ~10 rotas quebram. Depois: criar Casas (`/admin/casas`), turmas (`/admin/turmas`), alunos (`/admin/importar` — planilha ou cadastro manual).
+
+**Achados da auditoria (Fase 15) ainda ABERTOS:**
+- **P3** — `xlsx@0.18.5` tem CVEs (Prototype Pollution, ReDoS) sem patch no npm. Correção: instalar do registro do SheetJS (`npm i https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`).
+- **P6** — `GET /api/alunos/busca` é enumerável (2 letras devolvem nome+turma). Mitigar: exigir 3 chars + escopo por turma/Casa.
+- **P7** — sem rate limiting em nenhuma rota (exige Upstash ou similar, serverless não compartilha memória).
+
+**Outras notas ⚠️ de longa data:**
+- `src/components/dashboard/instrucoes-investimento.tsx` (conteúdo formativo confessional, virtudes + refs bíblicas) precisa de revisão da coordenação pedagógica/religiosa antes de valer como voz institucional.
+- `MULTIESCOLA.md` **não** foi aplicado neste checkout — o modelo `Presente` não tem `escolaId`; se for aplicar, ver notas na Fase 12.
+- E2E não roda no CI; precisa `bosquecoins_e2e` recriado + `npm run prisma:seed` antes (`tests/e2e/README.md`). Rodar após qualquer mudança em investir/pontuar/resgate.
+
+**Como rodar local:** `npm run dev` (porta 3000, login de dev ativo). Ver seções "Comandos" e "Stack" abaixo. No Windows, **parar o dev server antes de `prisma migrate`/`generate`** (trava a DLL do query engine — erro EPERM).
+
+---
+
 ## Continuação — Fase 16 (RN-10 vira opcional: qualquer domínio, se pré-cadastrado)
 
 A restrição de domínio de e-mail deixou de ser obrigatória. Agora `ALLOWED_EMAIL_DOMAIN`:
